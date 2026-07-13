@@ -1,0 +1,54 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Wallet by BudgetBakers",
+        "description": "Paste the Bearer token from the Wallet web app (Premium required). It is stored securely and never logged.",
+        "data": {
+          "token": "API token"
+        },
+        "data_description": {
+          "token": "Web app → Settings → API. The same token maps to one Wallet account."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate Wallet",
+        "description": "The stored token was rejected. Paste a fresh Bearer token to reconnect.",
+        "data": {
+          "token": "API token"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "The token was rejected. Check that it is current and copied in full.",
+      "cannot_connect": "Could not reach the Wallet API. Check your connection and try again.",
+      "rate_limited": "The Wallet API rate limit is exhausted. Wait a while and try again.",
+      "unknown": "Unexpected error validating the token."
+    },
+    "abort": {
+      "already_configured": "This Wallet token is already set up.",
+      "reauth_successful": "Wallet re-authenticated successfully."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Wallet options",
+        "description": "Choose which accounts to expose and the reporting period. Fewer accounts means fewer API requests.",
+        "data": {
+          "account_ids": "Accounts to expose",
+          "period": "Reporting period"
+        }
+      }
+    }
+  },
+  "selector": {
+    "period": {
+      "options": {
+        "this_year": "This year",
+        "this_month": "This month",
+        "custom": "Custom range"
+      }
+    }
+  }
+}
