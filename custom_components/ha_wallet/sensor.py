@@ -17,6 +17,7 @@ from homeassistant.components.sensor import (
     SensorEntity,
     SensorStateClass,
 )
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -32,13 +33,19 @@ from .const import (
     ATTR_CATEGORY_IDS,
     ATTR_CREDIT_BALANCE,
     ATTR_CURRENCY,
+    ATTR_DESIRED_DATE,
     ATTR_EXPENSE,
+    ATTR_GOAL_STATE,
     ATTR_INCOME,
+    ATTR_INITIAL_AMOUNT,
     ATTR_LAST_CHANGE,
     ATTR_LIMIT,
+    ATTR_ORDERS,
     ATTR_PERIOD,
     ATTR_RECORDS,
     ATTR_REMAINING,
+    ATTR_RESET_AT,
+    ATTR_RULES,
     ATTR_TOTAL_CREDIT_LIMIT,
     ATTR_VS_PREVIOUS_PCT,
     ATTRIBUTION,
@@ -70,7 +77,16 @@ async def async_setup_entry(
         WalletSpendingByCardinalitySensor(coordinator, entry),
         WalletLastRecordsSensor(coordinator, entry),
         WalletCreditUtilizationSensor(coordinator, entry),
+        WalletApiUsageSensor(coordinator, entry),
+        WalletStandingOrdersSensor(coordinator, entry),
+        WalletRecordRulesSensor(coordinator, entry),
     ]
+
+    # One sensor per savings goal.
+    for goal in data.goals:
+        goal_id = goal.get("id")
+        if goal_id is not None:
+            entities.append(WalletGoalSensor(coordinator, entry, str(goal_id)))
 
     tracked = [a for a in data.accounts if str(a.get("id")) in selected_accounts]
 
@@ -434,3 +450,134 @@ class WalletCreditUtilizationSensor(_MoneySensor):
             ATTR_TOTAL_CREDIT_LIMIT: round(total_limit, 2) if accounts else None,
             ATTR_AVAILABLE: round(available, 2) if accounts else None,
         }
+
+
+# --- M5: advanced / diagnostic ----------------------------------------------
+
+
+class WalletApiUsageSensor(WalletBaseSensor):
+    """Requests remaining this hour, read from the rate-limit headers."""
+
+    _attr_translation_key = "api_usage"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_native_unit_of_measurement = "requests"
+    _attr_icon = "mdi:speedometer"
+
+    def __init__(self, coordinator, entry) -> None:  # noqa: ANN001
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_api_usage"
+
+    @property
+    def native_value(self) -> int | None:
+        return self.coordinator.client.meta.ratelimit_remaining
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        meta = self.coordinator.client.meta
+        return {ATTR_LIMIT: meta.ratelimit_limit, ATTR_RESET_AT: None}
+
+
+class WalletGoalSensor(_MoneySensor):
+    """A savings goal's target amount (the API exposes no live saved amount)."""
+
+    def __init__(
+        self,
+        coordinator: WalletDataUpdateCoordinator,
+        entry: ConfigEntry,
+        goal_id: str,
+    ) -> None:
+        super().__init__(coordinator, entry)
+        self._goal_id = goal_id
+        self._attr_unique_id = f"{entry.entry_id}_goal_{goal_id}"
+        self._attr_name = f"Goal {self._goal().get('name') or goal_id}"
+
+    def _goal(self) -> Mapping[str, Any]:
+        for goal in self._wallet.goals:
+            if str(goal.get("id")) == self._goal_id:
+                return goal
+        return {}
+
+    @staticmethod
+    def _amount(value: Any) -> Mapping[str, Any]:
+        return value if isinstance(value, Mapping) else {}
+
+    @property
+    def native_value(self) -> float | None:
+        return self._amount(self._goal().get("targetAmount")).get("value")
+
+    @property
+    def native_unit_of_measurement(self) -> str | None:
+        return self._amount(self._goal().get("targetAmount")).get("currencyCode")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        goal = self._goal()
+        return {
+            ATTR_GOAL_STATE: goal.get("state"),
+            ATTR_DESIRED_DATE: goal.get("desiredDate"),
+            ATTR_INITIAL_AMOUNT: self._amount(goal.get("initialAmount")).get("value"),
+            ATTR_CURRENCY: self._amount(goal.get("targetAmount")).get("currencyCode"),
+        }
+
+
+class WalletStandingOrdersSensor(WalletBaseSensor):
+    """Count of standing orders; the orders themselves are attributes."""
+
+    _attr_translation_key = "standing_orders"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:calendar-sync"
+
+    def __init__(self, coordinator, entry) -> None:  # noqa: ANN001
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_standing_orders"
+
+    @property
+    def native_value(self) -> int:
+        return len(self._wallet.standing_orders)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        orders = [
+            {
+                "id": order.get("id"),
+                "name": order.get("name"),
+                "amount": order.get("amount"),
+                "currency": order.get("currencyCode"),
+                "type": order.get("type"),
+                "due_date": order.get("dueDate"),
+                "payment_type": order.get("paymentType"),
+                "account_id": order.get("accountId"),
+            }
+            for order in self._wallet.standing_orders
+        ]
+        return {ATTR_ORDERS: orders}
+
+
+class WalletRecordRulesSensor(WalletBaseSensor):
+    """Count of record auto-categorisation rules; details in attributes."""
+
+    _attr_translation_key = "record_rules"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:auto-fix"
+
+    def __init__(self, coordinator, entry) -> None:  # noqa: ANN001
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_record_rules"
+
+    @property
+    def native_value(self) -> int:
+        return len(self._wallet.record_rules)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        rules = [
+            {
+                "id": rule.get("id"),
+                "name": rule.get("name"),
+                "keywords": rule.get("keywords"),
+                "category": (rule.get("category") or {}).get("name"),
+            }
+            for rule in self._wallet.record_rules
+        ]
+        return {ATTR_RULES: rules}

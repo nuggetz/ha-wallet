@@ -285,3 +285,17 @@ manage_label:
     archived:
       selector:
         boolean:
+
+delete_standing_order:
+  fields:
+    standing_order_id:
+      required: true
+      selector:
+        text:
+
+delete_record_rule:
+  fields:
+    record_rule_id:
+      required: true
+      selector:
+        text:

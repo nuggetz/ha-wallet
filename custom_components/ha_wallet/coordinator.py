@@ -70,6 +70,9 @@ class WalletData:
 
     accounts: list[dict[str, Any]] = field(default_factory=list)
     budgets: list[dict[str, Any]] = field(default_factory=list)
+    goals: list[dict[str, Any]] = field(default_factory=list)
+    standing_orders: list[dict[str, Any]] = field(default_factory=list)
+    record_rules: list[dict[str, Any]] = field(default_factory=list)
     spending: AggregateResult = field(default_factory=AggregateResult)
     spending_previous: AggregateResult = field(default_factory=AggregateResult)
     last_records: list[dict[str, Any]] = field(default_factory=list)
@@ -159,6 +162,9 @@ class WalletDataUpdateCoordinator(DataUpdateCoordinator[WalletData]):
 
         budgets = await self._guarded(self.client.async_get_budgets())
         categories = await self._guarded(self.client.async_get_categories())
+        goals = await self._guarded(self.client.async_get_goals())
+        standing_orders = await self._guarded(self.client.async_get_standing_orders())
+        record_rules = await self._guarded(self.client.async_get_record_rules())
         cardinality = {
             str(c["id"]): str(c.get("cardinality", "none"))
             for c in categories
@@ -191,6 +197,9 @@ class WalletDataUpdateCoordinator(DataUpdateCoordinator[WalletData]):
         return WalletData(
             accounts=accounts,
             budgets=budgets,
+            goals=goals,
+            standing_orders=standing_orders,
+            record_rules=record_rules,
             spending=spending,
             spending_previous=spending_previous,
             last_records=self._serialize_records(current_records, eligible),

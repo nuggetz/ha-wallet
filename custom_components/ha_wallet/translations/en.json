@@ -209,6 +209,20 @@
         "color": { "name": "Color", "description": "Universal color name." },
         "archived": { "name": "Archived", "description": "Archive the label (patch)." }
       }
+    },
+    "delete_standing_order": {
+      "name": "Delete standing order",
+      "description": "Delete a recurring standing order by id.",
+      "fields": {
+        "standing_order_id": { "name": "Standing order", "description": "ID of the standing order to delete." }
+      }
+    },
+    "delete_record_rule": {
+      "name": "Delete record rule",
+      "description": "Delete a record auto-categorisation rule by id.",
+      "fields": {
+        "record_rule_id": { "name": "Record rule", "description": "ID of the record rule to delete." }
+      }
     }
   },
   "exceptions": {
@@ -240,7 +254,10 @@
       "spending": { "name": "Spending" },
       "spending_by_cardinality": { "name": "Spending by nature" },
       "last_records": { "name": "Last records" },
-      "credit_utilization": { "name": "Credit utilization" }
+      "credit_utilization": { "name": "Credit utilization" },
+      "api_usage": { "name": "API requests remaining" },
+      "standing_orders": { "name": "Standing orders" },
+      "record_rules": { "name": "Record rules" }
     }
   }
 }

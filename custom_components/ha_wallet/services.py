@@ -36,12 +36,16 @@ from .const import (
     ATTR_RECORD_DATE,
     ATTR_RECORD_ID,
     ATTR_TO_ACCOUNT_ID,
+    ATTR_RECORD_RULE_ID,
+    ATTR_STANDING_ORDER_ID,
     DEFAULT_PAIRING_MODE,
     DOMAIN,
     PAYMENT_TYPES,
     SERVICE_ADD_RECORD,
     SERVICE_ADD_TRANSFER,
     SERVICE_DELETE_RECORD,
+    SERVICE_DELETE_RECORD_RULE,
+    SERVICE_DELETE_STANDING_ORDER,
     SERVICE_UPDATE_RECORD,
 )
 
@@ -333,6 +337,34 @@ async def _handle_add_transfer(call: ServiceCall) -> ServiceResponse:
     return {"record_id": result.get("id")}
 
 
+# --- delete_standing_order / delete_record_rule (M5) -------------------------
+
+DELETE_STANDING_ORDER_SCHEMA = vol.Schema(
+    {vol.Required(ATTR_STANDING_ORDER_ID): cv.string}
+)
+DELETE_RECORD_RULE_SCHEMA = vol.Schema({vol.Required(ATTR_RECORD_RULE_ID): cv.string})
+
+
+def _make_delete_handler(entity_type: str, id_field: str):
+    """Build a handler that deletes one advanced entity by id (single entry)."""
+
+    async def handler(call: ServiceCall) -> ServiceResponse:
+        entity_id = call.data[id_field]
+        coordinator = _single_entry(call.hass)
+        try:
+            await coordinator.client.async_delete_entity(entity_type, entity_id)
+        except WalletRecordError as err:
+            raise ServiceValidationError(str(err)) from err
+        except WalletApiError as err:
+            raise HomeAssistantError(
+                f"Wallet API error deleting {entity_type}: {err}"
+            ) from err
+        await coordinator.async_request_refresh()
+        return {"id": entity_id}
+
+    return handler
+
+
 # --- shared helpers ----------------------------------------------------------
 
 
@@ -386,6 +418,16 @@ def async_setup_services(hass: HomeAssistant) -> None:
         (SERVICE_UPDATE_RECORD, _handle_update_record, UPDATE_RECORD_SCHEMA),
         (SERVICE_DELETE_RECORD, _handle_delete_record, DELETE_RECORD_SCHEMA),
         (SERVICE_ADD_TRANSFER, _handle_add_transfer, ADD_TRANSFER_SCHEMA),
+        (
+            SERVICE_DELETE_STANDING_ORDER,
+            _make_delete_handler("standing-orders", ATTR_STANDING_ORDER_ID),
+            DELETE_STANDING_ORDER_SCHEMA,
+        ),
+        (
+            SERVICE_DELETE_RECORD_RULE,
+            _make_delete_handler("record-rules", ATTR_RECORD_RULE_ID),
+            DELETE_RECORD_RULE_SCHEMA,
+        ),
         *management_services(),
     )
     for name, handler, schema in services:
@@ -407,6 +449,8 @@ def async_unload_services(hass: HomeAssistant) -> None:
         SERVICE_UPDATE_RECORD,
         SERVICE_DELETE_RECORD,
         SERVICE_ADD_TRANSFER,
+        SERVICE_DELETE_STANDING_ORDER,
+        SERVICE_DELETE_RECORD_RULE,
         *MANAGEMENT_SERVICE_NAMES,
     )
     for name in names:

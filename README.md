@@ -145,6 +145,13 @@ data:
 
 Colours use Wallet's named palette (e.g. `Blue`, `Green`, `Orange`).
 
+### Advanced delete services
+
+- `ha_wallet.delete_standing_order` — delete a recurring standing order by
+  `standing_order_id`.
+- `ha_wallet.delete_record_rule` — delete an auto-categorisation rule by
+  `record_rule_id`.
+
 ### Wall-panel quick add
 
 A ready-made helper package (amount / expense-income / payment type / note plus
@@ -171,7 +178,7 @@ is `0.1.0`**, cut once the full v1 API surface is complete.
 | **M2** | Cash entry service (`add_record`) + wall-panel button recipe | ✅ Done |
 | **M3** | Extended record write (`update_record`, `delete_record` with references pre-check, `add_transfer`) | ✅ Done |
 | **M4** | Management: `manage_budget` / `manage_category` / `manage_account` / `manage_label` (account & label delete excluded in v1) | ✅ Done |
-| M5 | Standing orders, record rules, goals, API-usage sensor, optional CSV history import | ⏳ Planned |
+| **M5** | Goals / standing-orders / record-rules sensors + delete services, API-usage diagnostic sensor (optional CSV `import_history` pending) | ✅ Done |
 | 0.2.0 | Household / multi-account (multiple tokens) | 🔮 Future |
 
 ## License

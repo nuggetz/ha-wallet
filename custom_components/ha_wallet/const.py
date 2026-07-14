@@ -78,6 +78,12 @@ SERVICE_MANAGE_CATEGORY: Final = "manage_category"
 SERVICE_MANAGE_ACCOUNT: Final = "manage_account"
 SERVICE_MANAGE_LABEL: Final = "manage_label"
 
+# M5 delete services for advanced entities.
+SERVICE_DELETE_STANDING_ORDER: Final = "delete_standing_order"
+SERVICE_DELETE_RECORD_RULE: Final = "delete_record_rule"
+ATTR_STANDING_ORDER_ID: Final = "standing_order_id"
+ATTR_RECORD_RULE_ID: Final = "record_rule_id"
+
 ATTR_OPERATION: Final = "operation"
 OP_CREATE: Final = "create"
 OP_PATCH: Final = "patch"
@@ -186,3 +192,11 @@ ATTR_RECORDS: Final = "records"
 ATTR_CREDIT_BALANCE: Final = "credit_balance"
 ATTR_TOTAL_CREDIT_LIMIT: Final = "total_credit_limit"
 ATTR_AVAILABLE: Final = "available"
+
+# M5 sensor attributes.
+ATTR_RESET_AT: Final = "reset_at"
+ATTR_GOAL_STATE: Final = "goal_state"
+ATTR_DESIRED_DATE: Final = "desired_date"
+ATTR_INITIAL_AMOUNT: Final = "initial_amount"
+ATTR_ORDERS: Final = "orders"
+ATTR_RULES: Final = "rules"

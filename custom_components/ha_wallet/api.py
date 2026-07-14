@@ -233,6 +233,18 @@ class WalletApiClient:
         """Return categories (used for names and the ``cardinality`` field)."""
         return await self._get_collection("/categories", "categories")
 
+    async def async_get_goals(self) -> list[dict[str, Any]]:
+        """Return savings goals (read-only)."""
+        return await self._get_collection("/goals", "goals")
+
+    async def async_get_standing_orders(self) -> list[dict[str, Any]]:
+        """Return recurring standing orders."""
+        return await self._get_collection("/standing-orders", "standingOrders")
+
+    async def async_get_record_rules(self) -> list[dict[str, Any]]:
+        """Return record auto-categorisation rules."""
+        return await self._get_collection("/record-rules", "recordRules")
+
     async def async_get_records(
         self,
         *,
