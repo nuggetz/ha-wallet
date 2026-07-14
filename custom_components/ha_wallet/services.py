@@ -115,9 +115,7 @@ def _find_account(
             if str(account.get("id")) == account_id:
                 return coordinator, account
     raise ServiceValidationError(
-        translation_domain=DOMAIN,
-        translation_key="account_not_found",
-        translation_placeholders={"account_id": account_id},
+        f"No tracked Wallet account with id {account_id} was found."
     )
 
 
@@ -129,9 +127,8 @@ async def _handle_add_record(call: ServiceCall) -> ServiceResponse:
 
     if account.get("isBankSync"):
         raise ServiceValidationError(
-            translation_domain=DOMAIN,
-            translation_key="account_read_only",
-            translation_placeholders={"name": account.get("name") or ""},
+            f"Account {account.get('name') or account.get('id')} is bank-synced "
+            "and read-only; records apply to cash/manual accounts only."
         )
 
     payload = build_add_record_payload(dict(data), _resolve_date(data))
@@ -197,7 +194,7 @@ async def _handle_update_record(call: ServiceCall) -> ServiceResponse:
     data = call.data
     if not any(field in data for field in _PATCHABLE):
         raise ServiceValidationError(
-            translation_domain=DOMAIN, translation_key="nothing_to_update"
+            "Provide at least one field to change besides the record id."
         )
     coordinator = _single_entry(call.hass)
     record_date = _resolve_date(data) if ATTR_RECORD_DATE in data else None
@@ -250,13 +247,10 @@ async def _handle_delete_record(call: ServiceCall) -> ServiceResponse:
             raise HomeAssistantError(f"Wallet API error checking references: {err}") from err
         blocking = summarize_references(references)
         if blocking:
+            refs = ", ".join(f"{k}={v}" for k, v in blocking.items())
             raise ServiceValidationError(
-                translation_domain=DOMAIN,
-                translation_key="record_has_references",
-                translation_placeholders={
-                    "record_id": record_id,
-                    "references": ", ".join(f"{k}={v}" for k, v in blocking.items()),
-                },
+                f"Record {record_id} is referenced by other entities ({refs}). "
+                "Set force: true to delete it anyway."
             )
 
     try:
@@ -320,9 +314,8 @@ async def _handle_add_transfer(call: ServiceCall) -> ServiceResponse:
     for account in (source, target):
         if account.get("isBankSync"):
             raise ServiceValidationError(
-                translation_domain=DOMAIN,
-                translation_key="account_read_only",
-                translation_placeholders={"name": account.get("name") or ""},
+                f"Account {account.get('name') or account.get('id')} is bank-synced "
+                "and read-only; transfers apply to cash/manual accounts only."
             )
 
     payload = build_add_transfer_payload(dict(data), _resolve_date(data))
@@ -382,9 +375,7 @@ def _find_account_in(coordinator, account_id: str) -> dict[str, Any]:
         if str(account.get("id")) == account_id:
             return account
     raise ServiceValidationError(
-        translation_domain=DOMAIN,
-        translation_key="account_not_found",
-        translation_placeholders={"account_id": account_id},
+        f"No tracked Wallet account with id {account_id} was found."
     )
 
 
@@ -402,7 +393,8 @@ def _single_entry(hass: HomeAssistant) -> WalletDataUpdateCoordinator:
     if len(coordinators) == 1:
         return coordinators[0]
     raise ServiceValidationError(
-        translation_domain=DOMAIN, translation_key="ambiguous_entry"
+        "Multiple Wallet accounts are configured; record-scoped services need a "
+        "single account in v1."
     )
 
 

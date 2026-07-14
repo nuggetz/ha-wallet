@@ -46,7 +46,6 @@ from .const import (
     CATEGORY_CARDINALITIES,
     COLOR_NAMES,
     CREATABLE_ACCOUNT_TYPES,
-    DOMAIN,
     OP_CREATE,
     OP_DELETE,
     OP_PATCH,
@@ -67,9 +66,7 @@ def _require(data: dict[str, Any], field: str) -> Any:
     value = data.get(field)
     if value in (None, ""):
         raise ServiceValidationError(
-            translation_domain=DOMAIN,
-            translation_key="missing_field",
-            translation_placeholders={"field": field},
+            f"The '{field}' field is required for this operation."
         )
     return value
 
@@ -228,9 +225,7 @@ def _make_handler(cfg: ManageEntity) -> Callable[[ServiceCall], Any]:
             else:  # delete
                 if not cfg.allow_delete:
                     raise ServiceValidationError(
-                        translation_domain=DOMAIN,
-                        translation_key="delete_not_supported",
-                        translation_placeholders={"entity": cfg.label},
+                        f"Deleting a {cfg.label} is not supported in this version."
                     )
                 result_id = _require(data, cfg.id_field)
                 await client.async_delete_entity(cfg.entity_type, result_id)

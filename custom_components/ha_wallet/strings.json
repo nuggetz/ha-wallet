@@ -225,29 +225,6 @@
       }
     }
   },
-  "exceptions": {
-    "account_not_found": {
-      "message": "No tracked Wallet account with id {account_id} was found."
-    },
-    "account_read_only": {
-      "message": "Account {name} is bank-synced and read-only; records can only be added to cash/manual accounts."
-    },
-    "nothing_to_update": {
-      "message": "Provide at least one field to change besides the record id."
-    },
-    "record_has_references": {
-      "message": "Record {record_id} is referenced by other entities ({references}). Set force: true to delete it anyway."
-    },
-    "ambiguous_entry": {
-      "message": "Multiple Wallet accounts are configured; record-scoped services need a single account in v1."
-    },
-    "missing_field": {
-      "message": "The '{field}' field is required for this operation."
-    },
-    "delete_not_supported": {
-      "message": "Deleting a {entity} is not supported in this version."
-    }
-  },
   "entity": {
     "sensor": {
       "cash_flow": { "name": "Cash flow" },
