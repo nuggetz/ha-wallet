@@ -114,7 +114,7 @@ class WalletApiClient:
         method: str,
         path: str,
         *,
-        params: dict[str, Any] | None = None,
+        params: list[tuple[str, str]] | dict[str, Any] | None = None,
         json: Any | None = None,
     ) -> Any:
         """Perform one authenticated request and return the decoded JSON body.
@@ -187,30 +187,82 @@ class WalletApiClient:
         except (TypeError, ValueError):
             return None
 
-    # --- Endpoints (M0 needs accounts only) ---------------------------------
+    # --- Endpoints ----------------------------------------------------------
 
     async def async_get_accounts(self) -> list[dict[str, Any]]:
-        """Return the raw list of accounts.
+        """Return the list of accounts.
 
         Doubles as the token-validation and connectivity probe in the config
         flow: it is a lightweight GET that exercises auth, 409 init-sync and the
         rate-limit headers in one call.
         """
-        data = await self._request("GET", "/accounts")
-        return self._as_list(data)
+        return await self._get_collection("/accounts", "accounts")
+
+    async def async_get_budgets(self) -> list[dict[str, Any]]:
+        """Return budgets, each with API-computed ``spending`` for the period."""
+        return await self._get_collection("/budgets", "budgets")
+
+    async def async_get_categories(self) -> list[dict[str, Any]]:
+        """Return categories (used for names and the ``cardinality`` field)."""
+        return await self._get_collection("/categories", "categories")
+
+    async def async_get_records(
+        self,
+        *,
+        extra_params: list[tuple[str, str]] | None = None,
+        limit: int = 200,
+        max_pages: int = 25,
+        convert_to: str | None = "base",
+    ) -> list[dict[str, Any]]:
+        """Return records matching ``extra_params``, following pagination.
+
+        ``convert_to`` populates each record's ``convertedAmount`` (default the
+        profile base currency) so the coordinator can aggregate across currencies.
+        ``max_pages`` caps the request budget: at 200/page it spans 5,000 records
+        before truncating (logged), which comfortably covers a single user.
+        """
+        params: list[tuple[str, str]] = list(extra_params or [])
+        if convert_to:
+            params.append(("convertTo", convert_to))
+        return await self._get_collection(
+            "/records", "records", params=params, limit=limit, max_pages=max_pages
+        )
+
+    async def _get_collection(
+        self,
+        path: str,
+        key: str,
+        *,
+        params: list[tuple[str, str]] | None = None,
+        limit: int = 200,
+        max_pages: int = 25,
+    ) -> list[dict[str, Any]]:
+        """Fetch a paginated collection, accumulating ``key`` across pages."""
+        items: list[dict[str, Any]] = []
+        offset = 0
+        for page in range(max_pages):
+            page_params: list[tuple[str, str]] = list(params or [])
+            page_params.append(("limit", str(limit)))
+            page_params.append(("offset", str(offset)))
+            data = await self._request("GET", path, params=page_params)
+            items.extend(self._extract(data, key))
+            next_offset = data.get("nextOffset") if isinstance(data, dict) else None
+            if next_offset is None:
+                return items
+            offset = next_offset
+        _LOGGER.warning(
+            "Reached page cap (%s) fetching %s; results truncated", max_pages, path
+        )
+        return items
 
     @staticmethod
-    def _as_list(data: Any) -> list[dict[str, Any]]:
-        """Normalise a collection response to a list of items.
-
-        The API may return a bare array or a paginated ``{"data": [...]}`` wrapper
-        depending on the endpoint; accept either.
-        """
+    def _extract(data: Any, key: str) -> list[dict[str, Any]]:
+        """Pull the item list out of a response, tolerating shape drift."""
         if isinstance(data, list):
             return data
         if isinstance(data, dict):
-            for key in ("data", "items", "results"):
-                inner = data.get(key)
-                if isinstance(inner, list):
-                    return inner
+            inner = data.get(key)
+            if isinstance(inner, list):
+                return inner
+        return []
         return []

@@ -1,0 +1,57 @@
+blueprint:
+  name: Wallet — Overspending alert
+  description: >
+    Run an action when spending crosses a percentage of a budget's limit.
+    Point it at a `Budget …` sensor from the Wallet by BudgetBakers integration
+    (state = amount spent, with a `limit` attribute) or at the `Spending` sensor
+    with a fixed limit. Ships with the integration.
+  domain: automation
+  source_url: https://github.com/nuggetz/ha-wallet
+  input:
+    budget_sensor:
+      name: Budget (or spending) sensor
+      description: The Wallet sensor to watch. Its `limit` attribute is used as the ceiling.
+      selector:
+        entity:
+          filter:
+            - integration: ha_wallet
+              domain: sensor
+    threshold:
+      name: Threshold
+      description: Percentage of the limit that triggers the alert.
+      default: 90
+      selector:
+        number:
+          min: 1
+          max: 200
+          step: 1
+          unit_of_measurement: "%"
+          mode: slider
+    notify_action:
+      name: Action to run
+      description: What to do when the threshold is crossed (notification, TTS, …).
+      selector:
+        action: {}
+
+mode: single
+max_exceeded: silent
+
+trigger_variables:
+  budget_sensor: !input budget_sensor
+  threshold: !input threshold
+
+trigger:
+  - platform: template
+    value_template: >-
+      {% set spent = states(budget_sensor) | float(0) %}
+      {% set limit = state_attr(budget_sensor, 'limit') | float(0) %}
+      {{ limit > 0 and (spent / limit * 100) >= (threshold | float(0)) }}
+
+variables:
+  budget_sensor: !input budget_sensor
+  threshold: !input threshold
+  spent: "{{ states(budget_sensor) | float(0) }}"
+  limit: "{{ state_attr(budget_sensor, 'limit') | float(0) }}"
+  progress: "{{ (spent / limit * 100) | round(0) if limit > 0 else 0 }}"
+
+action: !input notify_action

@@ -24,6 +24,8 @@ CONF_TOKEN: Final = "token"  # Bearer token from the Wallet web app (Premium).
 CONF_ACCOUNT_IDS: Final = "account_ids"
 CONF_BUDGET_IDS: Final = "budget_ids"
 CONF_PERIOD: Final = "period"
+CONF_CUSTOM_START: Final = "custom_start"
+CONF_CUSTOM_END: Final = "custom_end"
 
 PERIOD_THIS_YEAR: Final = "this_year"
 PERIOD_THIS_MONTH: Final = "this_month"
@@ -55,3 +57,30 @@ HEADER_SYNC_IN_PROGRESS: Final = "X-Sync-In-Progress"
 HEADER_RATELIMIT_LIMIT: Final = "X-RateLimit-Limit"
 HEADER_RATELIMIT_REMAINING: Final = "X-RateLimit-Remaining"
 HEADER_RETRY_AFTER: Final = "Retry-After"
+
+# --- M1 read layer -----------------------------------------------------------
+# Number of most-recent records surfaced by the "last records" sensor.
+LAST_RECORDS_COUNT: Final = 10
+
+# Account types the API treats as credit-like; used (best-effort) for the credit
+# utilization sensor, which reads balance.creditLimit / creditBalance.
+CREDIT_ACCOUNT_TYPES: Final = ("CreditCard", "Overdraft")
+
+# Common entity/attribute keys (kept here so sensors and the card SPEC agree).
+ATTR_CURRENCY: Final = "currency"
+ATTR_PERIOD: Final = "period"
+ATTR_VS_PREVIOUS_PCT: Final = "vs_previous_pct"
+ATTR_ACCOUNT_TYPE: Final = "account_type"
+ATTR_BANK_SYNCED: Final = "bank_synced"
+ATTR_LAST_CHANGE: Final = "last_change"
+ATTR_ACCOUNT_IDS: Final = "account_ids"
+ATTR_INCOME: Final = "income"
+ATTR_EXPENSE: Final = "expense"
+ATTR_BY_CATEGORY: Final = "by_category"
+ATTR_LIMIT: Final = "limit"
+ATTR_REMAINING: Final = "remaining"
+ATTR_CATEGORY_IDS: Final = "category_ids"
+ATTR_RECORDS: Final = "records"
+ATTR_CREDIT_BALANCE: Final = "credit_balance"
+ATTR_TOTAL_CREDIT_LIMIT: Final = "total_credit_limit"
+ATTR_AVAILABLE: Final = "available"

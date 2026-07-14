@@ -34,10 +34,13 @@
     "step": {
       "init": {
         "title": "Wallet options",
-        "description": "Choose which accounts to expose and the reporting period. Fewer accounts means fewer API requests.",
+        "description": "Choose which accounts and budgets to expose and the reporting period. Fewer items means fewer API requests.",
         "data": {
           "account_ids": "Accounts to expose",
-          "period": "Reporting period"
+          "budget_ids": "Budgets to expose",
+          "period": "Reporting period",
+          "custom_start": "Custom range start (only for Custom range)",
+          "custom_end": "Custom range end (only for Custom range)"
         }
       }
     }
@@ -49,6 +52,15 @@
         "this_month": "This month",
         "custom": "Custom range"
       }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "cash_flow": { "name": "Cash flow" },
+      "spending": { "name": "Spending" },
+      "spending_by_cardinality": { "name": "Spending by nature" },
+      "last_records": { "name": "Last records" },
+      "credit_utilization": { "name": "Credit utilization" }
     }
   }
 }

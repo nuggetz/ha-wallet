@@ -1,9 +1,10 @@
 """Data update coordinator for Wallet by BudgetBakers.
 
-Foundational polling machinery (M0): rate-limit-aware refresh driven off the
-``X-Last-Data-Change-Rev`` header, capped-backoff handling of the ``409`` initial
-sync, and reauth signalling on ``401``. It fetches accounts only for now; M1
-layers budgets, records and categories on top of the same request budget.
+Polling machinery driven off the ``X-Last-Data-Change-Rev`` header: a cheap
+accounts probe runs every cycle, and the heavier budget/record fetches plus
+aggregation only run when the revision actually changed. Rate-limit-aware,
+handles the ``409`` initial sync with capped backoff, and signals reauth on
+``401``.
 """
 
 from __future__ import annotations
@@ -16,7 +17,9 @@ from typing import TYPE_CHECKING, Any
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
+from .aggregation import AggregateResult, aggregate, distinct_currencies
 from .api import (
     WalletApiClient,
     WalletApiError,
@@ -26,12 +29,20 @@ from .api import (
     WalletResponseMeta,
 )
 from .const import (
+    CONF_ACCOUNT_IDS,
+    CONF_CUSTOM_END,
+    CONF_CUSTOM_START,
+    CONF_PERIOD,
+    DEFAULT_PERIOD,
+    PERIOD_CUSTOM,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     INIT_SYNC_BACKOFF_MAX,
     INIT_SYNC_BACKOFF_START,
+    LAST_RECORDS_COUNT,
     RATE_LIMIT_SAFETY_MARGIN,
 )
+from .period import resolve_period
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -39,11 +50,31 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 
+def _parse_date(value: Any):
+    """Parse an ISO ``YYYY-MM-DD`` string to a date, or ``None`` if unusable."""
+    from datetime import date
+
+    if isinstance(value, date):
+        return value
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(str(value))
+    except ValueError:
+        return None
+
+
 @dataclass(slots=True)
 class WalletData:
-    """Snapshot handed to entities. Grows with each milestone (M0: accounts)."""
+    """Snapshot handed to entities."""
 
     accounts: list[dict[str, Any]] = field(default_factory=list)
+    budgets: list[dict[str, Any]] = field(default_factory=list)
+    spending: AggregateResult = field(default_factory=AggregateResult)
+    spending_previous: AggregateResult = field(default_factory=AggregateResult)
+    last_records: list[dict[str, Any]] = field(default_factory=list)
+    base_currency: str | None = None
+    period: str = DEFAULT_PERIOD
     meta: WalletResponseMeta = field(default_factory=WalletResponseMeta)
 
 
@@ -64,8 +95,6 @@ class WalletDataUpdateCoordinator(DataUpdateCoordinator[WalletData]):
             config_entry=entry,
         )
         self.client = client
-        # Last revision we successfully ingested; M1 uses it to skip the heavier
-        # fetches when the account probe reports an unchanged revision.
         self._last_rev: str | None = None
 
     @property
@@ -73,11 +102,41 @@ class WalletDataUpdateCoordinator(DataUpdateCoordinator[WalletData]):
         """Most recent ``X-Last-Data-Change-Rev`` we ingested."""
         return self._last_rev
 
+    # --- options helpers -----------------------------------------------------
+
+    def _selected_account_ids(self, accounts: list[dict[str, Any]]) -> set[str]:
+        """Accounts the user chose to track (default: all)."""
+        selected = self.config_entry.options.get(CONF_ACCOUNT_IDS)
+        if not selected:
+            return {str(a["id"]) for a in accounts if a.get("id") is not None}
+        return {str(x) for x in selected}
+
+    @property
+    def _period(self) -> str:
+        return self.config_entry.options.get(CONF_PERIOD, DEFAULT_PERIOD)
+
+    def _resolve_bounds(self):
+        """Resolve the configured period, falling back if custom is incomplete."""
+        options = self.config_entry.options
+        today = dt_util.now().date()
+        period = self._period
+        custom_start = _parse_date(options.get(CONF_CUSTOM_START))
+        custom_end = _parse_date(options.get(CONF_CUSTOM_END))
+        try:
+            return resolve_period(period, today, custom_start, custom_end)
+        except ValueError:
+            if period == PERIOD_CUSTOM:
+                _LOGGER.warning(
+                    "Custom period selected without valid dates; using %s",
+                    DEFAULT_PERIOD,
+                )
+                return resolve_period(DEFAULT_PERIOD, today)
+            raise
+
+    # --- refresh -------------------------------------------------------------
+
     async def _async_update_data(self) -> WalletData:
-        """Fetch the current snapshot, respecting the request budget."""
-        # Proactive guard: if the last response left us near the ceiling, hold
-        # the previous snapshot rather than risk a 429 that would also starve
-        # user-triggered writes (services arrive in M2+).
+        """Probe for changes cheaply; do the heavy fetch only when data moved."""
         remaining = self.client.meta.ratelimit_remaining
         if (
             remaining is not None
@@ -85,16 +144,66 @@ class WalletDataUpdateCoordinator(DataUpdateCoordinator[WalletData]):
             and self.data is not None
         ):
             _LOGGER.debug(
-                "Skipping poll: %s requests remaining this hour (margin %s)",
-                remaining,
-                RATE_LIMIT_SAFETY_MARGIN,
+                "Skipping poll: %s requests remaining this hour", remaining
             )
             return self.data
 
+        accounts = await self._guarded(self.client.async_get_accounts())
+        rev = self.client.meta.change_rev
+
+        # Nothing changed since our last full snapshot: reuse it and skip the
+        # budget/record fetches entirely (the whole point of rev polling).
+        if self.data is not None and rev is not None and rev == self._last_rev:
+            self._restore_interval()
+            return self.data
+
+        budgets = await self._guarded(self.client.async_get_budgets())
+        categories = await self._guarded(self.client.async_get_categories())
+        cardinality = {
+            str(c["id"]): str(c.get("cardinality", "none"))
+            for c in categories
+            if c.get("id") is not None
+        }
+
+        bounds = self._resolve_bounds()
+        current_records = await self._guarded(
+            self.client.async_get_records(extra_params=bounds.current_filters())
+        )
+        previous_records = await self._guarded(
+            self.client.async_get_records(extra_params=bounds.previous_filters())
+        )
+
+        eligible = self._eligible_account_ids(accounts)
+        base_currency = self._detect_base_currency(current_records, previous_records)
+        use_base = len(distinct_currencies(current_records, eligible)) > 1
+
+        spending = aggregate(
+            current_records, cardinality, eligible,
+            use_base=use_base, base_currency=base_currency,
+        )
+        spending_previous = aggregate(
+            previous_records, cardinality, eligible,
+            use_base=use_base, base_currency=base_currency,
+        )
+
+        self._restore_interval()
+        self._last_rev = rev
+        return WalletData(
+            accounts=accounts,
+            budgets=budgets,
+            spending=spending,
+            spending_previous=spending_previous,
+            last_records=self._serialize_records(current_records, eligible),
+            base_currency=base_currency,
+            period=self._period,
+            meta=self.client.meta,
+        )
+
+    async def _guarded(self, awaitable: Any) -> Any:
+        """Await an API call, translating client errors to coordinator outcomes."""
         try:
-            accounts = await self.client.async_get_accounts()
+            return await awaitable
         except WalletAuthError as err:
-            # Trigger HA's reauth flow so the user can paste a fresh token.
             raise ConfigEntryAuthFailed(str(err)) from err
         except WalletInitSyncError as err:
             self._enter_backoff(err.retry_after)
@@ -106,13 +215,51 @@ class WalletDataUpdateCoordinator(DataUpdateCoordinator[WalletData]):
         except WalletApiError as err:
             raise UpdateFailed(str(err)) from err
 
-        # Success: restore the normal cadence and record the revision.
-        self._restore_interval()
-        meta = self.client.meta
-        self._last_rev = meta.change_rev
-        if meta.sync_in_progress:
-            _LOGGER.debug("Wallet reports sync in progress; data may be partial")
-        return WalletData(accounts=accounts, meta=meta)
+    def _eligible_account_ids(self, accounts: list[dict[str, Any]]) -> set[str]:
+        """Selected accounts minus those Wallet flags as excluded from stats."""
+        selected = self._selected_account_ids(accounts)
+        excluded = {
+            str(a["id"])
+            for a in accounts
+            if a.get("excludeFromStats") and a.get("id") is not None
+        }
+        return selected - excluded
+
+    @staticmethod
+    def _detect_base_currency(*record_lists: list[dict[str, Any]]) -> str | None:
+        """Read the profile base currency from any converted amount."""
+        for records in record_lists:
+            for record in records:
+                converted = record.get("convertedAmount") or {}
+                code = converted.get("currencyCode")
+                if code and not converted.get("error"):
+                    return code
+        return None
+
+    def _serialize_records(
+        self, records: list[dict[str, Any]], eligible: set[str]
+    ) -> list[dict[str, Any]]:
+        """Compact the newest records for the last-records sensor attribute."""
+        out: list[dict[str, Any]] = []
+        for record in records:
+            if record.get("accountId") not in eligible:
+                continue
+            amount = record.get("amount") or {}
+            category = record.get("category") or {}
+            out.append(
+                {
+                    "amount": amount.get("value"),
+                    "currency": amount.get("currencyCode"),
+                    "type": record.get("recordType"),
+                    "category": category.get("name"),
+                    "account": record.get("accountName"),
+                    "date": record.get("recordDate"),
+                    "note": record.get("note"),
+                }
+            )
+            if len(out) >= LAST_RECORDS_COUNT:
+                break
+        return out
 
     # --- interval helpers ----------------------------------------------------
 
@@ -126,8 +273,10 @@ class WalletDataUpdateCoordinator(DataUpdateCoordinator[WalletData]):
         self.update_interval = nxt
 
     def _set_interval_seconds(self, seconds: float) -> None:
-        capped = min(max(seconds, INIT_SYNC_BACKOFF_START.total_seconds()),
-                     INIT_SYNC_BACKOFF_MAX.total_seconds())
+        capped = min(
+            max(seconds, INIT_SYNC_BACKOFF_START.total_seconds()),
+            INIT_SYNC_BACKOFF_MAX.total_seconds(),
+        )
         self.update_interval = timedelta(seconds=capped)
 
     def _restore_interval(self) -> None:

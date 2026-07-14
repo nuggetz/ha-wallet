@@ -3,8 +3,8 @@
 Unofficial Home Assistant integration for Wallet by BudgetBakers, built on the
 official Wallet REST API. Not affiliated with BudgetBakers.
 
-M0 sets up the API client and the polling coordinator. No entity platforms are
-forwarded yet — read sensors arrive in M1.
+Sets up the API client and the polling coordinator and forwards the sensor
+platform (M1 read core: balances, budgets, spending, records).
 """
 
 from __future__ import annotations
@@ -20,8 +20,7 @@ from .api import WalletApiClient
 from .const import CONF_TOKEN
 from .coordinator import WalletDataUpdateCoordinator
 
-# No platforms in M0; M1 appends Platform.SENSOR here.
-PLATFORMS: list[Platform] = []
+PLATFORMS: list[Platform] = [Platform.SENSOR]
 
 
 @dataclass(slots=True)

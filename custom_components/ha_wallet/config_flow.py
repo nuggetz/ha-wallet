@@ -17,6 +17,7 @@ from homeassistant.config_entries import (
 )
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
+    DateSelector,
     SelectOptionDict,
     SelectSelector,
     SelectSelectorConfig,
@@ -36,6 +37,9 @@ from .api import (
 )
 from .const import (
     CONF_ACCOUNT_IDS,
+    CONF_BUDGET_IDS,
+    CONF_CUSTOM_END,
+    CONF_CUSTOM_START,
     CONF_PERIOD,
     CONF_TOKEN,
     DEFAULT_PERIOD,
@@ -177,6 +181,7 @@ class WalletOptionsFlow(OptionsFlow):
 
         options = self.config_entry.options
         account_choices = self._account_choices()
+        budget_choices = self._budget_choices()
 
         schema = vol.Schema(
             {
@@ -193,6 +198,18 @@ class WalletOptionsFlow(OptionsFlow):
                     )
                 ),
                 vol.Optional(
+                    CONF_BUDGET_IDS,
+                    default=options.get(
+                        CONF_BUDGET_IDS, [c["value"] for c in budget_choices]
+                    ),
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        options=budget_choices,
+                        multiple=True,
+                        mode=SelectSelectorMode.LIST,
+                    )
+                ),
+                vol.Optional(
                     CONF_PERIOD,
                     default=options.get(CONF_PERIOD, DEFAULT_PERIOD),
                 ): SelectSelector(
@@ -201,21 +218,38 @@ class WalletOptionsFlow(OptionsFlow):
                         translation_key="period",
                     )
                 ),
+                # Only used when period = "custom"; ignored otherwise.
+                vol.Optional(CONF_CUSTOM_START): DateSelector(),
+                vol.Optional(CONF_CUSTOM_END): DateSelector(),
             }
         )
-        return self.async_show_form(step_id="init", data_schema=schema)
+        return self.async_show_form(
+            step_id="init", data_schema=self.add_suggested_values_to_schema(schema, options)
+        )
+
+    def _snapshot(self) -> Any:
+        """Return the running coordinator's data snapshot, if available."""
+        runtime = getattr(self.config_entry, "runtime_data", None)
+        coordinator = getattr(runtime, "coordinator", None)
+        return getattr(coordinator, "data", None)
 
     def _account_choices(self) -> list[SelectOptionDict]:
         """Build account options from the running coordinator's snapshot."""
-        runtime = getattr(self.config_entry, "runtime_data", None)
-        coordinator = getattr(runtime, "coordinator", None)
-        data = getattr(coordinator, "data", None)
-        accounts = getattr(data, "accounts", []) or []
+        accounts = getattr(self._snapshot(), "accounts", []) or []
+        return self._choices(accounts)
+
+    def _budget_choices(self) -> list[SelectOptionDict]:
+        """Build budget options from the running coordinator's snapshot."""
+        budgets = getattr(self._snapshot(), "budgets", []) or []
+        return self._choices(budgets)
+
+    @staticmethod
+    def _choices(items: list[dict[str, Any]]) -> list[SelectOptionDict]:
         choices: list[SelectOptionDict] = []
-        for account in accounts:
-            account_id = account.get("id")
-            if account_id is None:
+        for item in items:
+            item_id = item.get("id")
+            if item_id is None:
                 continue
-            label = account.get("name") or str(account_id)
-            choices.append(SelectOptionDict(value=str(account_id), label=label))
+            label = item.get("name") or str(item_id)
+            choices.append(SelectOptionDict(value=str(item_id), label=label))
         return choices
