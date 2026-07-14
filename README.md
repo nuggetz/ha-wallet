@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/header.png" alt="ha-wallet — Wallet by BudgetBakers for Home Assistant" width="100%">
+</p>
+
 # Wallet by BudgetBakers — Home Assistant integration
 
 [![hacs][hacs-badge]][hacs-url]
