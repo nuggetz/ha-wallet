@@ -178,7 +178,8 @@ is `0.1.0`**, cut once the full v1 API surface is complete.
 | **M2** | Cash entry service (`add_record`) + wall-panel button recipe | ✅ Done |
 | **M3** | Extended record write (`update_record`, `delete_record` with references pre-check, `add_transfer`) | ✅ Done |
 | **M4** | Management: `manage_budget` / `manage_category` / `manage_account` / `manage_label` (account & label delete excluded in v1) | ✅ Done |
-| **M5** | Goals / standing-orders / record-rules sensors + delete services, API-usage diagnostic sensor (optional CSV `import_history` pending) | ✅ Done |
+| **M5** | Goals / standing-orders / record-rules sensors + delete services, API-usage diagnostic sensor | ✅ Done |
+| 0.1.x | Optional CSV `import_history` (LTS trend seeding) — deferred until validated | 🔮 Later |
 | 0.2.0 | Household / multi-account (multiple tokens) | 🔮 Future |
 
 ## License
