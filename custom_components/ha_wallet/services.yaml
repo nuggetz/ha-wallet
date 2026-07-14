@@ -1,0 +1,41 @@
+add_record:
+  fields:
+    account_id:
+      required: true
+      example: "3f8e2a6b-9c4d-4e1f-b2a7-5d8c3e9f1a4b"
+      selector:
+        text:
+    amount:
+      required: true
+      example: -12.50
+      selector:
+        number:
+          mode: box
+          step: 0.01
+    payment_type:
+      required: true
+      default: cash
+      selector:
+        select:
+          translation_key: payment_type
+          options:
+            - cash
+            - debit_card
+            - credit_card
+            - transfer
+            - voucher
+            - mobile_payment
+            - web_payment
+    category_id:
+      selector:
+        text:
+    record_date:
+      selector:
+        datetime:
+    note:
+      selector:
+        text:
+    label_ids:
+      selector:
+        text:
+          multiple: true

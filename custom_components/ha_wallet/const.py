@@ -66,6 +66,30 @@ LAST_RECORDS_COUNT: Final = 10
 # utilization sensor, which reads balance.creditLimit / creditBalance.
 CREDIT_ACCOUNT_TYPES: Final = ("CreditCard", "Overdraft")
 
+# --- Services (M2) -----------------------------------------------------------
+SERVICE_ADD_RECORD: Final = "add_record"
+
+# add_record fields (service schema keys). Amount sign drives the record type:
+# negative = expense, positive = income (never zero). Currency is inherited from
+# the account, never sent, per the multi-currency rule.
+ATTR_ACCOUNT_ID: Final = "account_id"
+ATTR_AMOUNT: Final = "amount"
+ATTR_PAYMENT_TYPE: Final = "payment_type"
+ATTR_CATEGORY_ID: Final = "category_id"
+ATTR_RECORD_DATE: Final = "record_date"
+ATTR_NOTE: Final = "note"
+ATTR_LABEL_IDS: Final = "label_ids"
+
+PAYMENT_TYPES: Final = (
+    "cash",
+    "debit_card",
+    "credit_card",
+    "transfer",
+    "voucher",
+    "mobile_payment",
+    "web_payment",
+)
+
 # Common entity/attribute keys (kept here so sensors and the card SPEC agree).
 ATTR_CURRENCY: Final = "currency"
 ATTR_PERIOD: Final = "period"

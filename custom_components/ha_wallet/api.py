@@ -60,6 +60,30 @@ class WalletRateLimitError(WalletApiError):
         self.retry_after = retry_after
 
 
+class WalletValidationError(WalletApiError):
+    """Request rejected as invalid (HTTP 400).
+
+    Carries the decoded ``body`` so batch endpoints (whose per-item failures are
+    reported in the 400 body) can surface the specific reason.
+    """
+
+    def __init__(self, message: str, body: Any = None) -> None:
+        super().__init__(message)
+        self.body = body
+
+
+class WalletRecordError(WalletApiError):
+    """A single record was rejected by the batch create/patch endpoint.
+
+    ``error_type`` is ``client_error`` (bad input, e.g. a bank-synced account)
+    or ``server_error``.
+    """
+
+    def __init__(self, message: str, error_type: str | None = None) -> None:
+        super().__init__(message)
+        self.error_type = error_type
+
+
 @dataclass(slots=True)
 class WalletResponseMeta:
     """Sync/rate-limit signals lifted from the response headers.
@@ -174,6 +198,9 @@ class WalletApiClient:
                 message or "Rate limit exceeded",
                 retry_after=self._retry_after(resp),
             )
+        if status == HTTPStatus.BAD_REQUEST:
+            # Batch endpoints report per-item failures in the 400 body; keep it.
+            raise WalletValidationError(message or "Invalid request", body=body)
         raise WalletApiError(f"Wallet API error {status}: {message or resp.reason}")
 
     @staticmethod
@@ -226,6 +253,30 @@ class WalletApiClient:
             params.append(("convertTo", convert_to))
         return await self._get_collection(
             "/records", "records", params=params, limit=limit, max_pages=max_pages
+        )
+
+    async def async_create_record(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Create one record and return its result item (with the new ``id``).
+
+        The endpoint is a batch: we send a single-item array and read the one
+        result back. Per-item failures (e.g. a write to a bank-synced account)
+        arrive either in a 207/200 body or as a 400 body — both are unwrapped
+        into a :class:`WalletRecordError` carrying the API's own message.
+        """
+        try:
+            body = await self._request("POST", "/records", json=[payload])
+        except WalletValidationError as err:
+            body = err.body  # batch 400: the per-item reason is inside the body
+
+        results = self._extract(body, "results")
+        if not results:
+            raise WalletApiError("Wallet API returned no result for the record")
+        item = results[0]
+        if item.get("id"):
+            return item
+        raise WalletRecordError(
+            item.get("error") or "Record was rejected",
+            error_type=item.get("errorType"),
         )
 
     async def _get_collection(

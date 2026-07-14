@@ -1,0 +1,105 @@
+# Wallet by BudgetBakers — wall-panel quick-add package
+# ------------------------------------------------------
+# Drop-in Home Assistant package that turns a wall panel into a cash-entry pad:
+# helpers for amount / kind / payment type / note, plus a script that calls
+# `ha_wallet.add_record` with the correct sign and then clears the inputs.
+#
+# Install:
+#   1. Enable packages once in configuration.yaml:
+#        homeassistant:
+#          packages: !include_dir_named packages
+#   2. Save this file as  packages/wallet_quick_add.yaml
+#   3. Set `input_text.wallet_quick_account` to a CASH/MANUAL account id
+#      (Developer Tools → Services → ha_wallet.add_record shows your account ids,
+#      or read them from the account sensors). Bank-synced accounts are rejected.
+#   4. Restart / reload packages, then add the Lovelace card at the bottom.
+
+input_number:
+  wallet_quick_amount:
+    name: Wallet amount
+    min: 0
+    max: 100000
+    step: 0.01
+    mode: box
+    icon: mdi:cash
+
+input_select:
+  wallet_quick_kind:
+    name: Wallet kind
+    options:
+      - Expense
+      - Income
+    initial: Expense
+    icon: mdi:swap-vertical
+
+  wallet_quick_payment:
+    name: Wallet payment type
+    # Values must match the API enum exactly.
+    options:
+      - cash
+      - debit_card
+      - credit_card
+      - transfer
+      - voucher
+      - mobile_payment
+      - web_payment
+    initial: cash
+    icon: mdi:credit-card-outline
+
+input_text:
+  wallet_quick_account:
+    name: Wallet account id
+    max: 64
+    icon: mdi:bank
+
+  wallet_quick_note:
+    name: Wallet note
+    max: 128
+    icon: mdi:note-text
+
+script:
+  wallet_quick_add:
+    alias: Wallet Quick Add
+    icon: mdi:cash-plus
+    mode: single
+    sequence:
+      - service: ha_wallet.add_record
+        data:
+          account_id: "{{ states('input_text.wallet_quick_account') }}"
+          # Sign selects the type: negative = expense, positive = income.
+          amount: >-
+            {% set a = states('input_number.wallet_quick_amount') | float(0) %}
+            {{ -a if is_state('input_select.wallet_quick_kind', 'Expense') else a }}
+          payment_type: "{{ states('input_select.wallet_quick_payment') }}"
+          note: "{{ states('input_text.wallet_quick_note') }}"
+      # Reset the pad for the next entry.
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.wallet_quick_amount
+        data:
+          value: 0
+      - service: input_text.set_value
+        target:
+          entity_id: input_text.wallet_quick_note
+        data:
+          value: ""
+
+# ---------------------------------------------------------------------------
+# Lovelace card (add via the dashboard, not this package):
+#
+# type: vertical-stack
+# cards:
+#   - type: entities
+#     title: Quick add to Wallet
+#     entities:
+#       - input_number.wallet_quick_amount
+#       - input_select.wallet_quick_kind
+#       - input_select.wallet_quick_payment
+#       - input_text.wallet_quick_note
+#   - type: button
+#     name: Add to Wallet
+#     icon: mdi:cash-plus
+#     tap_action:
+#       action: call-service
+#       service: script.wallet_quick_add
+# ---------------------------------------------------------------------------

@@ -52,6 +52,42 @@ built on the supported API rather than a fragile email/notification hack.
 - Bank-synced accounts are **read-only** by API design; the integration can only
   write to cash/manual accounts (write features land in a later milestone).
 
+## Services
+
+### `ha_wallet.add_record`
+
+Create an expense or income on a **cash/manual** account. The **amount sign**
+selects the type — negative = expense, positive = income (never zero) — and the
+**currency is inherited from the account** (never sent). Writes to bank-synced
+accounts are rejected with a clear error.
+
+| Field | Required | Notes |
+|---|---|---|
+| `account_id` | ✅ | A cash/manual account id (bank-synced accounts are read-only). |
+| `amount` | ✅ | Non-zero. Negative = expense, positive = income. |
+| `payment_type` | ✅ | `cash`, `debit_card`, `credit_card`, `transfer`, `voucher`, `mobile_payment`, `web_payment`. |
+| `category_id` | | Optional category id. |
+| `record_date` | | Optional date/time (defaults to now; not >24 h in the future). |
+| `note` | | Optional free text. |
+| `label_ids` | | Optional list of label ids. |
+
+```yaml
+service: ha_wallet.add_record
+data:
+  account_id: "3f8e2a6b-9c4d-4e1f-b2a7-5d8c3e9f1a4b"
+  amount: -12.50          # €12.50 expense
+  payment_type: cash
+  note: "Coffee"
+```
+
+### Wall-panel quick add
+
+A ready-made helper package (amount / expense-income / payment type / note plus
+a one-tap script) lives in [`examples/wall-panel-package.yaml`](examples/wall-panel-package.yaml).
+Drop it into your `packages/` folder, point it at a cash account id, and add the
+Lovelace card shown at the bottom of that file. A polished quick-add form card is
+part of the separate **ha-wallet-card** project.
+
 ## Companion dashboard card
 
 A dedicated Lovelace panel, **ha-wallet-card**, is planned as a separate project
@@ -66,8 +102,8 @@ is `0.1.0`**, cut once the full v1 API surface is complete.
 | Milestone | Scope | Status |
 |---|---|---|
 | **M0** | Config flow (secure token), rate-limit-aware coordinator, init-sync handling, i18n + multi-currency base | ✅ Done |
-| M1 | Read sensors (balances, budgets, spending, records) + overspending blueprint | ⏳ Planned |
-| M2 | Cash entry service (`add_record`) + wall-panel button recipe | ⏳ Planned |
+| **M1** | Read sensors (balances, budgets, spending, records) + overspending blueprint | ✅ Done |
+| **M2** | Cash entry service (`add_record`) + wall-panel button recipe | ✅ Done |
 | M3 | Extended record write (patch/delete/transfers) | ⏳ Planned |
 | M4 | Management (budgets, custom categories, accounts) | ⏳ Planned |
 | M5 | Standing orders, record rules, goals, API-usage sensor, optional CSV history import | ⏳ Planned |

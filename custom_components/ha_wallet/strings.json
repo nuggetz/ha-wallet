@@ -52,6 +52,61 @@
         "this_month": "This month",
         "custom": "Custom range"
       }
+    },
+    "payment_type": {
+      "options": {
+        "cash": "Cash",
+        "debit_card": "Debit card",
+        "credit_card": "Credit card",
+        "transfer": "Transfer",
+        "voucher": "Voucher",
+        "mobile_payment": "Mobile payment",
+        "web_payment": "Web payment"
+      }
+    }
+  },
+  "services": {
+    "add_record": {
+      "name": "Add record",
+      "description": "Create an expense or income on a cash/manual account. The amount sign selects the type (negative = expense, positive = income); the currency is inherited from the account. Bank-synced accounts are read-only and rejected.",
+      "fields": {
+        "account_id": {
+          "name": "Account",
+          "description": "ID of a cash/manual account to add the record to."
+        },
+        "amount": {
+          "name": "Amount (signed)",
+          "description": "Non-zero amount. Negative for an expense, positive for an income."
+        },
+        "payment_type": {
+          "name": "Payment type",
+          "description": "How the transaction was paid."
+        },
+        "category_id": {
+          "name": "Category",
+          "description": "Optional category ID for the record."
+        },
+        "record_date": {
+          "name": "Date",
+          "description": "Optional record date and time (defaults to now). Must not be more than 24 hours in the future."
+        },
+        "note": {
+          "name": "Note",
+          "description": "Optional free-text note."
+        },
+        "label_ids": {
+          "name": "Labels",
+          "description": "Optional list of label IDs to attach."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "account_not_found": {
+      "message": "No tracked Wallet account with id {account_id} was found."
+    },
+    "account_read_only": {
+      "message": "Account {name} is bank-synced and read-only; records can only be added to cash/manual accounts."
     }
   },
   "entity": {

@@ -3,22 +3,23 @@
 Unofficial Home Assistant integration for Wallet by BudgetBakers, built on the
 official Wallet REST API. Not affiliated with BudgetBakers.
 
-Sets up the API client and the polling coordinator and forwards the sensor
-platform (M1 read core: balances, budgets, spending, records).
+Sets up the API client and the polling coordinator, forwards the sensor
+platform (M1 read core) and registers the cash-entry services (M2).
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import WalletApiClient
-from .const import CONF_TOKEN
+from .const import CONF_TOKEN, DOMAIN
 from .coordinator import WalletDataUpdateCoordinator
+from .services import async_setup_services, async_unload_services
 
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 
@@ -48,12 +49,25 @@ async def async_setup_entry(hass: HomeAssistant, entry: WalletConfigEntry) -> bo
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_reload_on_update))
+    async_setup_services(hass)
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: WalletConfigEntry) -> bool:
     """Unload a config entry."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unloaded and not _other_loaded_entries(hass, entry):
+        async_unload_services(hass)
+    return unloaded
+
+
+def _other_loaded_entries(hass: HomeAssistant, entry: WalletConfigEntry) -> bool:
+    """Whether any Wallet entry other than ``entry`` is still loaded."""
+    return any(
+        other.entry_id != entry.entry_id
+        and other.state is ConfigEntryState.LOADED
+        for other in hass.config_entries.async_entries(DOMAIN)
+    )
 
 
 async def _async_reload_on_update(
