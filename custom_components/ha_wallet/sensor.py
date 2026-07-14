@@ -25,8 +25,10 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .aggregation import percent_change
 from .const import (
+    ATTR_ACCOUNT_ID,
     ATTR_ACCOUNT_IDS,
     ATTR_ACCOUNT_TYPE,
+    ATTR_BUDGET_ID,
     ATTR_AVAILABLE,
     ATTR_BANK_SYNCED,
     ATTR_BY_CATEGORY,
@@ -186,6 +188,7 @@ class WalletAccountSensor(_MoneySensor):
         account = self._account()
         balance = _account_balance(account)
         return {
+            ATTR_ACCOUNT_ID: self._account_id,
             ATTR_ACCOUNT_TYPE: account.get("accountType"),
             ATTR_CURRENCY: balance.get("currencyCode"),
             ATTR_BANK_SYNCED: account.get("isBankSync"),
@@ -277,6 +280,7 @@ class WalletBudgetSensor(_MoneySensor):
         budget = self._budget()
         current = self._current()
         return {
+            ATTR_BUDGET_ID: self._budget_id,
             ATTR_LIMIT: current.get("limit", budget.get("limit")),
             ATTR_REMAINING: current.get("remaining"),
             ATTR_PERIOD: current.get("period"),
@@ -514,6 +518,7 @@ class WalletGoalSensor(_MoneySensor):
     def extra_state_attributes(self) -> dict[str, Any]:
         goal = self._goal()
         return {
+            "id": self._goal_id,
             ATTR_GOAL_STATE: goal.get("state"),
             ATTR_DESIRED_DATE: goal.get("desiredDate"),
             ATTR_INITIAL_AMOUNT: self._amount(goal.get("initialAmount")).get("value"),

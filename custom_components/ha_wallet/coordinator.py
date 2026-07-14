@@ -257,6 +257,7 @@ class WalletDataUpdateCoordinator(DataUpdateCoordinator[WalletData]):
             category = record.get("category") or {}
             out.append(
                 {
+                    "id": record.get("id"),
                     "amount": amount.get("value"),
                     "currency": amount.get("currencyCode"),
                     "type": record.get("recordType"),
