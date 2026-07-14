@@ -202,7 +202,6 @@ manage_category:
     color:
       selector:
         select:
-          translation_key: color
           options: &colors
             - Blue
             - Charcoal
@@ -253,7 +252,6 @@ manage_account:
     color:
       selector:
         select:
-          translation_key: color
           options: *colors
     exclude_from_stats:
       selector:
@@ -280,7 +278,6 @@ manage_label:
     color:
       selector:
         select:
-          translation_key: color
           options: *colors
     archived:
       selector:

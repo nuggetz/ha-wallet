@@ -24,6 +24,9 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
+          # Brand assets live in the home-assistant/brands repo; add them there
+          # before submitting to HACS default. Ignored so custom-repo CI is green.
+          ignore: brands
 
   tests:
     name: Tests
