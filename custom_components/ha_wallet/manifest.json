@@ -1,12 +1,12 @@
 {
   "domain": "ha_wallet",
   "name": "Wallet by BudgetBakers",
-  "version": "0.1.0",
+  "codeowners": ["@nuggetz"],
   "config_flow": true,
   "documentation": "https://github.com/nuggetz/ha-wallet",
-  "issue_tracker": "https://github.com/nuggetz/ha-wallet/issues",
-  "codeowners": ["@nuggetz"],
-  "requirements": [],
+  "integration_type": "service",
   "iot_class": "cloud_polling",
-  "integration_type": "service"
+  "issue_tracker": "https://github.com/nuggetz/ha-wallet/issues",
+  "requirements": [],
+  "version": "0.1.0"
 }
