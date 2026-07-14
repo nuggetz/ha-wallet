@@ -9,6 +9,7 @@ the coordinator.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from http import HTTPStatus
 from typing import Any
@@ -27,6 +28,14 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+_LIMIT_CAP_RE = re.compile(r"at most (\d+)")
+
+
+def _parse_limit_cap(message: str) -> int | None:
+    """Extract N from a "limit must be at most N" validation message."""
+    match = _LIMIT_CAP_RE.search(message)
+    return int(match.group(1)) if match else None
 
 
 class WalletApiError(Exception):
@@ -250,7 +259,7 @@ class WalletApiClient:
         *,
         extra_params: list[tuple[str, str]] | None = None,
         limit: int = 200,
-        max_pages: int = 25,
+        max_pages: int = 50,
         convert_to: str | None = "base",
     ) -> list[dict[str, Any]]:
         """Return records matching ``extra_params``, following pagination.
@@ -359,17 +368,30 @@ class WalletApiClient:
         key: str,
         *,
         params: list[tuple[str, str]] | None = None,
-        limit: int = 200,
-        max_pages: int = 25,
+        limit: int = 20,
+        max_pages: int = 60,
     ) -> list[dict[str, Any]]:
-        """Fetch a paginated collection, accumulating ``key`` across pages."""
+        """Fetch a paginated collection, accumulating ``key`` across pages.
+
+        The documented per-page ``limit`` maximum (200) is not enforced
+        uniformly by the server — some endpoints reject anything over 20. If a
+        page is rejected with "limit must be at most N", we adopt N and retry,
+        so the client adapts to whatever cap the endpoint actually applies.
+        """
         items: list[dict[str, Any]] = []
         offset = 0
-        for page in range(max_pages):
+        for _page in range(max_pages):
             page_params: list[tuple[str, str]] = list(params or [])
             page_params.append(("limit", str(limit)))
             page_params.append(("offset", str(offset)))
-            data = await self._request("GET", path, params=page_params)
+            try:
+                data = await self._request("GET", path, params=page_params)
+            except WalletValidationError as err:
+                capped = _parse_limit_cap(str(err))
+                if capped is not None and capped < limit:
+                    limit = capped
+                    continue  # retry this offset with the accepted limit
+                raise
             items.extend(self._extract(data, key))
             next_offset = data.get("nextOffset") if isinstance(data, dict) else None
             if next_offset is None:
