@@ -275,6 +275,33 @@ class WalletApiClient:
             "DELETE", "/records", None, body={"ids": [record_id]}
         )
 
+    async def async_create_entity(
+        self, path: str, payload: dict[str, Any], result_key: str
+    ) -> dict[str, Any]:
+        """POST a single object (budget/category/account/label) and return it.
+
+        Create endpoints wrap the entity as ``{<result_key>: {...}}`` and report
+        invalid input as a plain 400 (surfaced via :class:`WalletValidationError`).
+        """
+        body = await self._request("POST", path, json=payload)
+        if isinstance(body, dict) and isinstance(body.get(result_key), dict):
+            return body[result_key]
+        return body if isinstance(body, dict) else {}
+
+    async def async_patch_entity(
+        self, entity_type: str, item: dict[str, Any]
+    ) -> dict[str, Any]:
+        """PATCH one entity of ``entity_type`` (must include ``id``)."""
+        return await self._batch_write("PATCH", f"/{entity_type}", item)
+
+    async def async_delete_entity(
+        self, entity_type: str, entity_id: str
+    ) -> dict[str, Any]:
+        """DELETE one entity of ``entity_type`` by id."""
+        return await self._batch_write(
+            "DELETE", f"/{entity_type}", None, body={"ids": [entity_id]}
+        )
+
     async def async_get_references(self, ref_type: str, entity_id: str) -> dict[str, Any]:
         """Return what references an entity (pre-delete safety check)."""
         data = await self._request(

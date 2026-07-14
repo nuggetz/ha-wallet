@@ -69,6 +69,21 @@
         "new": "New (create linked mirror on target)",
         "unpaired": "Unpaired (single transfer record)"
       }
+    },
+    "operation": {
+      "options": {
+        "create": "Create",
+        "patch": "Update",
+        "delete": "Delete"
+      }
+    },
+    "cardinality": {
+      "options": {
+        "none": "None",
+        "must": "Must",
+        "need": "Need",
+        "want": "Want"
+      }
     }
   },
   "services": {
@@ -138,6 +153,62 @@
         "record_date": { "name": "Date", "description": "Optional date/time (defaults to now)." },
         "note": { "name": "Note", "description": "Optional note." }
       }
+    },
+    "manage_budget": {
+      "name": "Manage budget",
+      "description": "Create, patch or delete a budget. For create, name/currency/type/limit are required; BUDGET_CUSTOM also needs start and end dates.",
+      "fields": {
+        "operation": { "name": "Operation", "description": "create, patch or delete." },
+        "budget_id": { "name": "Budget", "description": "Budget ID (patch/delete)." },
+        "name": { "name": "Name", "description": "Budget display name." },
+        "currency_code": { "name": "Currency", "description": "3-letter currency code (create)." },
+        "type": { "name": "Type", "description": "Budget interval type (create)." },
+        "limit": { "name": "Limit", "description": "Spending limit, > 0 (create)." },
+        "category_ids": { "name": "Categories", "description": "Category IDs to track." },
+        "account_ids": { "name": "Accounts", "description": "Account IDs to track." },
+        "label_ids": { "name": "Labels", "description": "Label IDs to filter." },
+        "start_date": { "name": "Start date", "description": "For BUDGET_CUSTOM." },
+        "end_date": { "name": "End date", "description": "For BUDGET_CUSTOM." },
+        "closed": { "name": "Closed", "description": "Close the budget (patch)." }
+      }
+    },
+    "manage_category": {
+      "name": "Manage category",
+      "description": "Create a custom subcategory (needs name + parent), patch a category, or delete a custom category.",
+      "fields": {
+        "operation": { "name": "Operation", "description": "create, patch or delete." },
+        "category_id": { "name": "Category", "description": "Category ID (patch/delete)." },
+        "parent_id": { "name": "Parent", "description": "Parent base category ID (create)." },
+        "name": { "name": "Name", "description": "Category name." },
+        "cardinality": { "name": "Cardinality", "description": "must / need / want / none." },
+        "color": { "name": "Color", "description": "Universal color name." }
+      }
+    },
+    "manage_account": {
+      "name": "Manage account",
+      "description": "Create or patch a cash/manual account. Account deletion is not supported in this version.",
+      "fields": {
+        "operation": { "name": "Operation", "description": "create or patch." },
+        "account_id": { "name": "Account", "description": "Account ID (patch)." },
+        "name": { "name": "Name", "description": "Account name." },
+        "account_type": { "name": "Type", "description": "Creatable type (create)." },
+        "currency_code": { "name": "Currency", "description": "3-letter currency code (create)." },
+        "initial_balance": { "name": "Initial balance", "description": "Starting balance (create)." },
+        "color": { "name": "Color", "description": "Universal color name." },
+        "exclude_from_stats": { "name": "Exclude from stats", "description": "Exclude from statistics." },
+        "archived": { "name": "Archived", "description": "Archive the account (patch)." }
+      }
+    },
+    "manage_label": {
+      "name": "Manage label",
+      "description": "Create or patch a label. Label deletion is not supported in this version.",
+      "fields": {
+        "operation": { "name": "Operation", "description": "create or patch." },
+        "label_id": { "name": "Label", "description": "Label ID (patch)." },
+        "name": { "name": "Name", "description": "Label name." },
+        "color": { "name": "Color", "description": "Universal color name." },
+        "archived": { "name": "Archived", "description": "Archive the label (patch)." }
+      }
     }
   },
   "exceptions": {
@@ -155,6 +226,12 @@
     },
     "ambiguous_entry": {
       "message": "Multiple Wallet accounts are configured; record-scoped services need a single account in v1."
+    },
+    "missing_field": {
+      "message": "The '{field}' field is required for this operation."
+    },
+    "delete_not_supported": {
+      "message": "Deleting a {entity} is not supported in this version."
     }
   },
   "entity": {

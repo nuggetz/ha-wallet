@@ -120,6 +120,31 @@ data:
   pairing_mode: new
 ```
 
+### Management services (`manage_*`)
+
+Four services manage your Wallet setup; each takes an `operation`
+(`create` / `patch` / `delete`):
+
+| Service | Operations | Notes |
+|---|---|---|
+| `ha_wallet.manage_budget` | create / patch / delete | Create needs `name`, `currency_code`, `type`, `limit`. |
+| `ha_wallet.manage_category` | create / patch / delete | Create makes a **custom subcategory** (`name` + `parent_id`). Only custom categories delete. |
+| `ha_wallet.manage_account` | create / patch | Cash/manual types only. **No delete** in this version. |
+| `ha_wallet.manage_label` | create / patch | **No delete** in this version. Apply labels via `label_ids` on records. |
+
+```yaml
+service: ha_wallet.manage_budget
+data:
+  operation: create
+  name: "Groceries"
+  currency_code: EUR
+  type: BUDGET_INTERVAL_MONTH
+  limit: 300
+  category_ids: ["5c5c03e8-..."]
+```
+
+Colours use Wallet's named palette (e.g. `Blue`, `Green`, `Orange`).
+
 ### Wall-panel quick add
 
 A ready-made helper package (amount / expense-income / payment type / note plus
@@ -145,7 +170,7 @@ is `0.1.0`**, cut once the full v1 API surface is complete.
 | **M1** | Read sensors (balances, budgets, spending, records) + overspending blueprint | ✅ Done |
 | **M2** | Cash entry service (`add_record`) + wall-panel button recipe | ✅ Done |
 | **M3** | Extended record write (`update_record`, `delete_record` with references pre-check, `add_transfer`) | ✅ Done |
-| M4 | Management (budgets, custom categories, accounts) | ⏳ Planned |
+| **M4** | Management: `manage_budget` / `manage_category` / `manage_account` / `manage_label` (account & label delete excluded in v1) | ✅ Done |
 | M5 | Standing orders, record rules, goals, API-usage sensor, optional CSV history import | ⏳ Planned |
 | 0.2.0 | Household / multi-account (multiple tokens) | 🔮 Future |
 

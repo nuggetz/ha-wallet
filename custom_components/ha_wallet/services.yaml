@@ -120,3 +120,168 @@ add_transfer:
     note:
       selector:
         text:
+
+manage_budget:
+  fields:
+    operation:
+      required: true
+      default: create
+      selector:
+        select:
+          translation_key: operation
+          options: [create, patch, delete]
+    budget_id:
+      selector:
+        text:
+    name:
+      selector:
+        text:
+    currency_code:
+      example: EUR
+      selector:
+        text:
+    type:
+      selector:
+        select:
+          options:
+            - BUDGET_INTERVAL_WEEK
+            - BUDGET_INTERVAL_MONTH
+            - BUDGET_INTERVAL_YEAR
+            - BUDGET_CUSTOM
+    limit:
+      example: 300
+      selector:
+        number:
+          mode: box
+          step: 0.01
+    category_ids:
+      selector:
+        text:
+          multiple: true
+    account_ids:
+      selector:
+        text:
+          multiple: true
+    label_ids:
+      selector:
+        text:
+          multiple: true
+    start_date:
+      selector:
+        date:
+    end_date:
+      selector:
+        date:
+    closed:
+      selector:
+        boolean:
+
+manage_category:
+  fields:
+    operation:
+      required: true
+      default: create
+      selector:
+        select:
+          translation_key: operation
+          options: [create, patch, delete]
+    category_id:
+      selector:
+        text:
+    parent_id:
+      selector:
+        text:
+    name:
+      selector:
+        text:
+    cardinality:
+      selector:
+        select:
+          translation_key: cardinality
+          options: [none, must, need, want]
+    color:
+      selector:
+        select:
+          translation_key: color
+          options: &colors
+            - Blue
+            - Charcoal
+            - CoffeeBrown
+            - DarkPurple
+            - Green
+            - LightBlue
+            - Lime
+            - Orange
+            - PineGreen
+            - Pink
+            - Purple
+            - Red
+            - Stone
+            - Turquoise
+            - Wine
+            - Yellow
+
+manage_account:
+  fields:
+    operation:
+      required: true
+      default: create
+      selector:
+        select:
+          translation_key: operation
+          options: [create, patch]
+    account_id:
+      selector:
+        text:
+    name:
+      selector:
+        text:
+    account_type:
+      selector:
+        select:
+          options: [General, Cash, CurrentAccount, SavingAccount, Insurance]
+    currency_code:
+      example: EUR
+      selector:
+        text:
+    initial_balance:
+      example: 0
+      selector:
+        number:
+          mode: box
+          step: 0.01
+    color:
+      selector:
+        select:
+          translation_key: color
+          options: *colors
+    exclude_from_stats:
+      selector:
+        boolean:
+    archived:
+      selector:
+        boolean:
+
+manage_label:
+  fields:
+    operation:
+      required: true
+      default: create
+      selector:
+        select:
+          translation_key: operation
+          options: [create, patch]
+    label_id:
+      selector:
+        text:
+    name:
+      selector:
+        text:
+    color:
+      selector:
+        select:
+          translation_key: color
+          options: *colors
+    archived:
+      selector:
+        boolean:

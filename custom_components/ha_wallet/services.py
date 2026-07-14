@@ -378,11 +378,15 @@ def async_setup_services(hass: HomeAssistant) -> None:
     """Register integration services once."""
     if hass.services.has_service(DOMAIN, SERVICE_ADD_RECORD):
         return
+    # Imported lazily to avoid a circular import (management uses helpers here).
+    from .management import management_services
+
     services = (
         (SERVICE_ADD_RECORD, _handle_add_record, ADD_RECORD_SCHEMA),
         (SERVICE_UPDATE_RECORD, _handle_update_record, UPDATE_RECORD_SCHEMA),
         (SERVICE_DELETE_RECORD, _handle_delete_record, DELETE_RECORD_SCHEMA),
         (SERVICE_ADD_TRANSFER, _handle_add_transfer, ADD_TRANSFER_SCHEMA),
+        *management_services(),
     )
     for name, handler, schema in services:
         hass.services.async_register(
@@ -396,11 +400,15 @@ def async_setup_services(hass: HomeAssistant) -> None:
 
 def async_unload_services(hass: HomeAssistant) -> None:
     """Remove integration services when the last entry is unloaded."""
-    for name in (
+    from .management import MANAGEMENT_SERVICE_NAMES
+
+    names = (
         SERVICE_ADD_RECORD,
         SERVICE_UPDATE_RECORD,
         SERVICE_DELETE_RECORD,
         SERVICE_ADD_TRANSFER,
-    ):
+        *MANAGEMENT_SERVICE_NAMES,
+    )
+    for name in names:
         if hass.services.has_service(DOMAIN, name):
             hass.services.async_remove(DOMAIN, name)

@@ -66,11 +66,74 @@ LAST_RECORDS_COUNT: Final = 10
 # utilization sensor, which reads balance.creditLimit / creditBalance.
 CREDIT_ACCOUNT_TYPES: Final = ("CreditCard", "Overdraft")
 
-# --- Services (M2–M3) --------------------------------------------------------
+# --- Services (M2–M4) --------------------------------------------------------
 SERVICE_ADD_RECORD: Final = "add_record"
 SERVICE_UPDATE_RECORD: Final = "update_record"
 SERVICE_DELETE_RECORD: Final = "delete_record"
 SERVICE_ADD_TRANSFER: Final = "add_transfer"
+
+# M4 management services: one per entity with an `operation` field.
+SERVICE_MANAGE_BUDGET: Final = "manage_budget"
+SERVICE_MANAGE_CATEGORY: Final = "manage_category"
+SERVICE_MANAGE_ACCOUNT: Final = "manage_account"
+SERVICE_MANAGE_LABEL: Final = "manage_label"
+
+ATTR_OPERATION: Final = "operation"
+OP_CREATE: Final = "create"
+OP_PATCH: Final = "patch"
+OP_DELETE: Final = "delete"
+OPERATIONS: Final = (OP_CREATE, OP_PATCH, OP_DELETE)
+
+# Management field keys.
+ATTR_BUDGET_ID: Final = "budget_id"
+ATTR_LABEL_ID: Final = "label_id"
+ATTR_NAME: Final = "name"
+ATTR_BUDGET_TYPE: Final = "type"
+ATTR_CURRENCY_CODE: Final = "currency_code"
+ATTR_START_DATE: Final = "start_date"
+ATTR_END_DATE: Final = "end_date"
+ATTR_CLOSED: Final = "closed"
+ATTR_PARENT_ID: Final = "parent_id"
+ATTR_CARDINALITY: Final = "cardinality"
+ATTR_COLOR: Final = "color"
+ATTR_ACCOUNT_TYPE_FIELD: Final = "account_type"
+ATTR_INITIAL_BALANCE: Final = "initial_balance"
+ATTR_EXCLUDE_FROM_STATS: Final = "exclude_from_stats"
+ATTR_ARCHIVED: Final = "archived"
+
+# API enums (mirror the OpenAPI spec).
+BUDGET_TYPES: Final = (
+    "BUDGET_INTERVAL_WEEK",
+    "BUDGET_INTERVAL_MONTH",
+    "BUDGET_INTERVAL_YEAR",
+    "BUDGET_CUSTOM",
+)
+CREATABLE_ACCOUNT_TYPES: Final = (
+    "General",
+    "Cash",
+    "CurrentAccount",
+    "SavingAccount",
+    "Insurance",
+)
+CATEGORY_CARDINALITIES: Final = ("none", "must", "need", "want")
+COLOR_NAMES: Final = (
+    "Blue",
+    "Charcoal",
+    "CoffeeBrown",
+    "DarkPurple",
+    "Green",
+    "LightBlue",
+    "Lime",
+    "Orange",
+    "PineGreen",
+    "Pink",
+    "Purple",
+    "Red",
+    "Stone",
+    "Turquoise",
+    "Wine",
+    "Yellow",
+)
 
 # add_record fields (service schema keys). Amount sign drives the record type:
 # negative = expense, positive = income (never zero). Currency is inherited from
