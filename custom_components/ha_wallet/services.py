@@ -27,14 +27,28 @@ from .const import (
     ATTR_ACCOUNT_ID,
     ATTR_AMOUNT,
     ATTR_CATEGORY_ID,
+    ATTR_FORCE,
+    ATTR_FROM_ACCOUNT_ID,
     ATTR_LABEL_IDS,
     ATTR_NOTE,
+    ATTR_PAIRING_MODE,
     ATTR_PAYMENT_TYPE,
     ATTR_RECORD_DATE,
+    ATTR_RECORD_ID,
+    ATTR_TO_ACCOUNT_ID,
+    DEFAULT_PAIRING_MODE,
     DOMAIN,
     PAYMENT_TYPES,
     SERVICE_ADD_RECORD,
+    SERVICE_ADD_TRANSFER,
+    SERVICE_DELETE_RECORD,
+    SERVICE_UPDATE_RECORD,
 )
+
+# Pairing modes exposed by the transfer service. "existing" (bind to a specific
+# counter record) needs a record id the contract does not model, so it is not
+# offered here.
+SERVICE_PAIRING_MODES = ("new", "unpaired")
 
 if TYPE_CHECKING:
     from .coordinator import WalletDataUpdateCoordinator
@@ -116,11 +130,7 @@ async def _handle_add_record(call: ServiceCall) -> ServiceResponse:
             translation_placeholders={"name": account.get("name") or ""},
         )
 
-    record_date = data.get(ATTR_RECORD_DATE) or dt_util.now()
-    if record_date.tzinfo is None:
-        # Interpret a naive datetime in Home Assistant's local time zone.
-        record_date = record_date.replace(tzinfo=dt_util.now().tzinfo)
-    payload = build_add_record_payload(dict(data), record_date.isoformat())
+    payload = build_add_record_payload(dict(data), _resolve_date(data))
 
     try:
         result = await coordinator.client.async_create_record(payload)
@@ -134,20 +144,263 @@ async def _handle_add_record(call: ServiceCall) -> ServiceResponse:
     return {"record_id": result.get("id")}
 
 
+# --- update_record -----------------------------------------------------------
+
+UPDATE_RECORD_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_RECORD_ID): cv.string,
+        vol.Optional(ATTR_AMOUNT): vol.All(vol.Coerce(float), _non_zero),
+        vol.Optional(ATTR_PAYMENT_TYPE): vol.In(PAYMENT_TYPES),
+        vol.Optional(ATTR_CATEGORY_ID): cv.string,
+        vol.Optional(ATTR_RECORD_DATE): cv.datetime,
+        vol.Optional(ATTR_NOTE): cv.string,
+        vol.Optional(ATTR_LABEL_IDS): vol.All(cv.ensure_list, [cv.string]),
+    }
+)
+
+_PATCHABLE = (
+    ATTR_AMOUNT,
+    ATTR_PAYMENT_TYPE,
+    ATTR_CATEGORY_ID,
+    ATTR_RECORD_DATE,
+    ATTR_NOTE,
+    ATTR_LABEL_IDS,
+)
+
+
+def build_update_record_payload(
+    data: dict[str, Any], record_date_iso: str | None
+) -> dict[str, Any]:
+    """Map validated data to a PATCH item (pure). Only provided fields are sent."""
+    payload: dict[str, Any] = {"id": data[ATTR_RECORD_ID]}
+    if ATTR_AMOUNT in data:
+        payload["amount"] = {"value": data[ATTR_AMOUNT]}
+    if data.get(ATTR_PAYMENT_TYPE):
+        payload["paymentType"] = data[ATTR_PAYMENT_TYPE]
+    if data.get(ATTR_CATEGORY_ID):
+        payload["categoryId"] = data[ATTR_CATEGORY_ID]
+    if record_date_iso:
+        payload["recordDate"] = record_date_iso
+    if ATTR_NOTE in data:
+        payload["note"] = data[ATTR_NOTE]
+    if ATTR_LABEL_IDS in data:
+        payload["labelIds"] = data[ATTR_LABEL_IDS]
+    return payload
+
+
+async def _handle_update_record(call: ServiceCall) -> ServiceResponse:
+    """Patch a record on the single loaded entry (v1 = one token)."""
+    data = call.data
+    if not any(field in data for field in _PATCHABLE):
+        raise ServiceValidationError(
+            translation_domain=DOMAIN, translation_key="nothing_to_update"
+        )
+    coordinator = _single_entry(call.hass)
+    record_date = _resolve_date(data) if ATTR_RECORD_DATE in data else None
+    payload = build_update_record_payload(dict(data), record_date)
+
+    try:
+        result = await coordinator.client.async_update_record(payload)
+    except WalletRecordError as err:
+        raise ServiceValidationError(str(err)) from err
+    except WalletApiError as err:
+        raise HomeAssistantError(f"Wallet API error updating record: {err}") from err
+
+    await coordinator.async_request_refresh()
+    return {"record_id": result.get("id") or data[ATTR_RECORD_ID]}
+
+
+# --- delete_record -----------------------------------------------------------
+
+DELETE_RECORD_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_RECORD_ID): cv.string,
+        vol.Optional(ATTR_FORCE, default=False): cv.boolean,
+    }
+)
+
+
+def summarize_references(references: dict[str, Any]) -> dict[str, int]:
+    """Collapse a references response to ``{type: total}`` for non-empty groups."""
+    out: dict[str, int] = {}
+    for key in ("records", "budgets", "recordRules", "standingOrders"):
+        group = references.get(key)
+        total = group.get("total") if isinstance(group, dict) else None
+        if total:
+            out[key] = total
+    return out
+
+
+async def _handle_delete_record(call: ServiceCall) -> ServiceResponse:
+    """Delete a record after a references safety check (bypass with force)."""
+    data = call.data
+    record_id = data[ATTR_RECORD_ID]
+    coordinator = _single_entry(call.hass)
+
+    if not data.get(ATTR_FORCE):
+        try:
+            references = await coordinator.client.async_get_references(
+                "records", record_id
+            )
+        except WalletApiError as err:
+            raise HomeAssistantError(f"Wallet API error checking references: {err}") from err
+        blocking = summarize_references(references)
+        if blocking:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="record_has_references",
+                translation_placeholders={
+                    "record_id": record_id,
+                    "references": ", ".join(f"{k}={v}" for k, v in blocking.items()),
+                },
+            )
+
+    try:
+        await coordinator.client.async_delete_record(record_id)
+    except WalletRecordError as err:
+        raise ServiceValidationError(str(err)) from err
+    except WalletApiError as err:
+        raise HomeAssistantError(f"Wallet API error deleting record: {err}") from err
+
+    await coordinator.async_request_refresh()
+    return {"record_id": record_id}
+
+
+# --- add_transfer ------------------------------------------------------------
+
+ADD_TRANSFER_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_FROM_ACCOUNT_ID): cv.string,
+        vol.Required(ATTR_TO_ACCOUNT_ID): cv.string,
+        vol.Required(ATTR_AMOUNT): vol.All(vol.Coerce(float), _non_zero),
+        vol.Optional(ATTR_PAIRING_MODE, default=DEFAULT_PAIRING_MODE): vol.In(
+            SERVICE_PAIRING_MODES
+        ),
+        vol.Optional(ATTR_RECORD_DATE): cv.datetime,
+        vol.Optional(ATTR_NOTE): cv.string,
+    }
+)
+
+
+def build_add_transfer_payload(
+    data: dict[str, Any], record_date_iso: str
+) -> dict[str, Any]:
+    """Model a transfer as a record leaving the source account (pure).
+
+    The amount is stored negative on the source (money out); the API creates the
+    positive mirror on the target for pairing mode ``new``. Currency is inherited
+    from the source account (never sent).
+    """
+    pairing_mode = data.get(ATTR_PAIRING_MODE, DEFAULT_PAIRING_MODE)
+    transfer: dict[str, Any] = {"pairingMode": pairing_mode}
+    if pairing_mode != "unpaired":
+        transfer["accountId"] = data[ATTR_TO_ACCOUNT_ID]
+    payload: dict[str, Any] = {
+        "accountId": data[ATTR_FROM_ACCOUNT_ID],
+        "amount": {"value": -abs(data[ATTR_AMOUNT])},
+        "recordDate": record_date_iso,
+        "transfer": transfer,
+    }
+    if data.get(ATTR_NOTE):
+        payload["note"] = data[ATTR_NOTE]
+    return payload
+
+
+async def _handle_add_transfer(call: ServiceCall) -> ServiceResponse:
+    """Create an account→account transfer (both accounts on the same token)."""
+    hass = call.hass
+    data = call.data
+    coordinator, source = _find_account(hass, data[ATTR_FROM_ACCOUNT_ID])
+    target = _find_account_in(coordinator, data[ATTR_TO_ACCOUNT_ID])
+
+    for account in (source, target):
+        if account.get("isBankSync"):
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="account_read_only",
+                translation_placeholders={"name": account.get("name") or ""},
+            )
+
+    payload = build_add_transfer_payload(dict(data), _resolve_date(data))
+    try:
+        result = await coordinator.client.async_create_record(payload)
+    except WalletRecordError as err:
+        raise ServiceValidationError(str(err)) from err
+    except WalletApiError as err:
+        raise HomeAssistantError(f"Wallet API error creating transfer: {err}") from err
+
+    await coordinator.async_request_refresh()
+    return {"record_id": result.get("id")}
+
+
+# --- shared helpers ----------------------------------------------------------
+
+
+def _resolve_date(data: dict[str, Any]) -> str:
+    """Return an ISO 8601 record date (defaults to now, local tz if naive)."""
+    record_date = data.get(ATTR_RECORD_DATE) or dt_util.now()
+    if record_date.tzinfo is None:
+        record_date = record_date.replace(tzinfo=dt_util.now().tzinfo)
+    return record_date.isoformat()
+
+
+def _find_account_in(coordinator, account_id: str) -> dict[str, Any]:
+    """Find an account within one coordinator's snapshot, or raise."""
+    for account in getattr(coordinator.data, "accounts", []) or []:
+        if str(account.get("id")) == account_id:
+            return account
+    raise ServiceValidationError(
+        translation_domain=DOMAIN,
+        translation_key="account_not_found",
+        translation_placeholders={"account_id": account_id},
+    )
+
+
+def _single_entry(hass: HomeAssistant) -> WalletDataUpdateCoordinator:
+    """Return the one loaded coordinator (v1 = single token).
+
+    Record-scoped services carry no account, so with multiple entries we cannot
+    tell which token owns the record; ask the user to disambiguate then.
+    """
+    coordinators = [
+        entry.runtime_data.coordinator
+        for entry in hass.config_entries.async_entries(DOMAIN)
+        if getattr(entry, "runtime_data", None) is not None
+    ]
+    if len(coordinators) == 1:
+        return coordinators[0]
+    raise ServiceValidationError(
+        translation_domain=DOMAIN, translation_key="ambiguous_entry"
+    )
+
+
 def async_setup_services(hass: HomeAssistant) -> None:
     """Register integration services once."""
     if hass.services.has_service(DOMAIN, SERVICE_ADD_RECORD):
         return
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_ADD_RECORD,
-        _handle_add_record,
-        schema=ADD_RECORD_SCHEMA,
-        supports_response=SupportsResponse.OPTIONAL,
+    services = (
+        (SERVICE_ADD_RECORD, _handle_add_record, ADD_RECORD_SCHEMA),
+        (SERVICE_UPDATE_RECORD, _handle_update_record, UPDATE_RECORD_SCHEMA),
+        (SERVICE_DELETE_RECORD, _handle_delete_record, DELETE_RECORD_SCHEMA),
+        (SERVICE_ADD_TRANSFER, _handle_add_transfer, ADD_TRANSFER_SCHEMA),
     )
+    for name, handler, schema in services:
+        hass.services.async_register(
+            DOMAIN,
+            name,
+            handler,
+            schema=schema,
+            supports_response=SupportsResponse.OPTIONAL,
+        )
 
 
 def async_unload_services(hass: HomeAssistant) -> None:
     """Remove integration services when the last entry is unloaded."""
-    if hass.services.has_service(DOMAIN, SERVICE_ADD_RECORD):
-        hass.services.async_remove(DOMAIN, SERVICE_ADD_RECORD)
+    for name in (
+        SERVICE_ADD_RECORD,
+        SERVICE_UPDATE_RECORD,
+        SERVICE_DELETE_RECORD,
+        SERVICE_ADD_TRANSFER,
+    ):
+        if hass.services.has_service(DOMAIN, name):
+            hass.services.async_remove(DOMAIN, name)

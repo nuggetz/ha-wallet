@@ -63,6 +63,12 @@
         "mobile_payment": "Mobile payment",
         "web_payment": "Web payment"
       }
+    },
+    "pairing_mode": {
+      "options": {
+        "new": "New (create linked mirror on target)",
+        "unpaired": "Unpaired (single transfer record)"
+      }
     }
   },
   "services": {
@@ -99,6 +105,39 @@
           "description": "Optional list of label IDs to attach."
         }
       }
+    },
+    "update_record": {
+      "name": "Update record",
+      "description": "Patch an existing record. Only the fields you provide are changed. The amount sign selects the type (negative = expense, positive = income).",
+      "fields": {
+        "record_id": { "name": "Record", "description": "ID of the record to update." },
+        "amount": { "name": "Amount (signed)", "description": "New non-zero amount. Negative = expense, positive = income." },
+        "payment_type": { "name": "Payment type", "description": "New payment method." },
+        "category_id": { "name": "Category", "description": "New category ID." },
+        "record_date": { "name": "Date", "description": "New record date/time." },
+        "note": { "name": "Note", "description": "New note (empty clears it)." },
+        "label_ids": { "name": "Labels", "description": "Replace the record's labels with this list." }
+      }
+    },
+    "delete_record": {
+      "name": "Delete record",
+      "description": "Delete a record. By default it is blocked if other entities reference it; set Force to delete anyway.",
+      "fields": {
+        "record_id": { "name": "Record", "description": "ID of the record to delete." },
+        "force": { "name": "Force", "description": "Delete even if the record is referenced by other entities." }
+      }
+    },
+    "add_transfer": {
+      "name": "Add transfer",
+      "description": "Move money between two of your accounts. The amount is the positive magnitude to move from the source to the target. Bank-synced accounts are read-only.",
+      "fields": {
+        "from_account_id": { "name": "From account", "description": "Source cash/manual account id." },
+        "to_account_id": { "name": "To account", "description": "Target account id (same token)." },
+        "amount": { "name": "Amount", "description": "Positive, non-zero amount to move." },
+        "pairing_mode": { "name": "Pairing", "description": "New = create a linked mirror on the target; Unpaired = single transfer record." },
+        "record_date": { "name": "Date", "description": "Optional date/time (defaults to now)." },
+        "note": { "name": "Note", "description": "Optional note." }
+      }
     }
   },
   "exceptions": {
@@ -107,6 +146,15 @@
     },
     "account_read_only": {
       "message": "Account {name} is bank-synced and read-only; records can only be added to cash/manual accounts."
+    },
+    "nothing_to_update": {
+      "message": "Provide at least one field to change besides the record id."
+    },
+    "record_has_references": {
+      "message": "Record {record_id} is referenced by other entities ({references}). Set force: true to delete it anyway."
+    },
+    "ambiguous_entry": {
+      "message": "Multiple Wallet accounts are configured; record-scoped services need a single account in v1."
     }
   },
   "entity": {

@@ -66,8 +66,11 @@ LAST_RECORDS_COUNT: Final = 10
 # utilization sensor, which reads balance.creditLimit / creditBalance.
 CREDIT_ACCOUNT_TYPES: Final = ("CreditCard", "Overdraft")
 
-# --- Services (M2) -----------------------------------------------------------
+# --- Services (M2–M3) --------------------------------------------------------
 SERVICE_ADD_RECORD: Final = "add_record"
+SERVICE_UPDATE_RECORD: Final = "update_record"
+SERVICE_DELETE_RECORD: Final = "delete_record"
+SERVICE_ADD_TRANSFER: Final = "add_transfer"
 
 # add_record fields (service schema keys). Amount sign drives the record type:
 # negative = expense, positive = income (never zero). Currency is inherited from
@@ -79,6 +82,18 @@ ATTR_CATEGORY_ID: Final = "category_id"
 ATTR_RECORD_DATE: Final = "record_date"
 ATTR_NOTE: Final = "note"
 ATTR_LABEL_IDS: Final = "label_ids"
+
+# update_record / delete_record / add_transfer fields (M3).
+ATTR_RECORD_ID: Final = "record_id"
+ATTR_FORCE: Final = "force"
+ATTR_FROM_ACCOUNT_ID: Final = "from_account_id"
+ATTR_TO_ACCOUNT_ID: Final = "to_account_id"
+ATTR_PAIRING_MODE: Final = "pairing_mode"
+
+# Transfer pairing: new = create a linked mirror on the target account,
+# unpaired = single transfer-typed record, existing = bind to an existing record.
+PAIRING_MODES: Final = ("new", "unpaired", "existing")
+DEFAULT_PAIRING_MODE: Final = "new"
 
 PAYMENT_TYPES: Final = (
     "cash",

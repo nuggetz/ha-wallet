@@ -80,6 +80,46 @@ data:
   note: "Coffee"
 ```
 
+### `ha_wallet.update_record`
+
+Patch an existing record — only the fields you pass change. Amount keeps the
+signed convention (negative = expense, positive = income).
+
+```yaml
+service: ha_wallet.update_record
+data:
+  record_id: "7c2b9d4e-1f3a-4b5c-8e6d-2a7f9b3c1e5a"
+  category_id: "5c5c03e8-..."
+  note: "Reclassified"
+```
+
+### `ha_wallet.delete_record`
+
+Delete a record. By default the call is **blocked if other entities reference
+it** (a references pre-check); pass `force: true` to delete anyway.
+
+```yaml
+service: ha_wallet.delete_record
+data:
+  record_id: "7c2b9d4e-1f3a-4b5c-8e6d-2a7f9b3c1e5a"
+  # force: true
+```
+
+### `ha_wallet.add_transfer`
+
+Move money between two of your accounts. `amount` is the positive magnitude to
+move from source to target; with pairing mode `new` the integration creates the
+linked mirror on the target account. Bank-synced accounts are read-only.
+
+```yaml
+service: ha_wallet.add_transfer
+data:
+  from_account_id: "acc-cash"
+  to_account_id: "acc-savings"
+  amount: 100
+  pairing_mode: new
+```
+
 ### Wall-panel quick add
 
 A ready-made helper package (amount / expense-income / payment type / note plus
@@ -104,7 +144,7 @@ is `0.1.0`**, cut once the full v1 API surface is complete.
 | **M0** | Config flow (secure token), rate-limit-aware coordinator, init-sync handling, i18n + multi-currency base | ✅ Done |
 | **M1** | Read sensors (balances, budgets, spending, records) + overspending blueprint | ✅ Done |
 | **M2** | Cash entry service (`add_record`) + wall-panel button recipe | ✅ Done |
-| M3 | Extended record write (patch/delete/transfers) | ⏳ Planned |
+| **M3** | Extended record write (`update_record`, `delete_record` with references pre-check, `add_transfer`) | ✅ Done |
 | M4 | Management (budgets, custom categories, accounts) | ⏳ Planned |
 | M5 | Standing orders, record rules, goals, API-usage sensor, optional CSV history import | ⏳ Planned |
 | 0.2.0 | Household / multi-account (multiple tokens) | 🔮 Future |

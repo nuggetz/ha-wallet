@@ -263,21 +263,56 @@ class WalletApiClient:
         arrive either in a 207/200 body or as a 400 body — both are unwrapped
         into a :class:`WalletRecordError` carrying the API's own message.
         """
-        try:
-            body = await self._request("POST", "/records", json=[payload])
-        except WalletValidationError as err:
-            body = err.body  # batch 400: the per-item reason is inside the body
+        return await self._batch_write("POST", "/records", payload)
 
-        results = self._extract(body, "results")
-        if not results:
-            raise WalletApiError("Wallet API returned no result for the record")
-        item = results[0]
-        if item.get("id"):
-            return item
-        raise WalletRecordError(
-            item.get("error") or "Record was rejected",
-            error_type=item.get("errorType"),
+    async def async_update_record(self, patch: dict[str, Any]) -> dict[str, Any]:
+        """Patch one record (``patch`` must include ``id``); return its result."""
+        return await self._batch_write("PATCH", "/records", patch)
+
+    async def async_delete_record(self, record_id: str) -> dict[str, Any]:
+        """Delete one record by id; return its result item."""
+        return await self._batch_write(
+            "DELETE", "/records", None, body={"ids": [record_id]}
         )
+
+    async def async_get_references(self, ref_type: str, entity_id: str) -> dict[str, Any]:
+        """Return what references an entity (pre-delete safety check)."""
+        data = await self._request(
+            "GET", f"/{ref_type}/references", params=[("id", entity_id)]
+        )
+        return data if isinstance(data, dict) else {}
+
+    async def _batch_write(
+        self,
+        method: str,
+        path: str,
+        item: dict[str, Any] | None,
+        *,
+        body: Any = None,
+    ) -> dict[str, Any]:
+        """Send a single-item batch write and unwrap the one result.
+
+        Create/patch send ``[item]``; delete sends an explicit ``{"ids": [...]}``
+        body. Per-item failures (e.g. a bank-synced account, a locked
+        ``uncleared`` record) surface as :class:`WalletRecordError` whether the
+        API reports them in a 200/207 body or as a 400.
+        """
+        json_body = body if body is not None else [item]
+        try:
+            resp = await self._request(method, path, json=json_body)
+        except WalletValidationError as err:
+            resp = err.body  # batch 400: the per-item reason is inside the body
+
+        results = self._extract(resp, "results")
+        if not results:
+            raise WalletApiError(f"Wallet API returned no result for {method} {path}")
+        result = results[0]
+        if result.get("error") or result.get("errorType"):
+            raise WalletRecordError(
+                result.get("error") or "Operation was rejected",
+                error_type=result.get("errorType"),
+            )
+        return result
 
     async def _get_collection(
         self,
