@@ -18,7 +18,7 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.const import EntityCategory
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -28,10 +28,11 @@ from .const import (
     ATTR_ACCOUNT_ID,
     ATTR_ACCOUNT_IDS,
     ATTR_ACCOUNT_TYPE,
-    ATTR_BUDGET_ID,
     ATTR_AVAILABLE,
     ATTR_BANK_SYNCED,
+    ATTR_BUDGET_ID,
     ATTR_BY_CATEGORY,
+    ATTR_CATEGORIES,
     ATTR_CATEGORY_IDS,
     ATTR_CREDIT_BALANCE,
     ATTR_CURRENCY,
@@ -40,6 +41,7 @@ from .const import (
     ATTR_GOAL_STATE,
     ATTR_INCOME,
     ATTR_INITIAL_AMOUNT,
+    ATTR_LABELS,
     ATTR_LAST_CHANGE,
     ATTR_LIMIT,
     ATTR_ORDERS,
@@ -68,49 +70,75 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up Wallet sensors from the first coordinator snapshot."""
+    """Set up Wallet sensors, adding per-item ones dynamically as they appear.
+
+    Singleton sensors are created once. Per-account / per-currency / per-budget /
+    per-goal sensors are (re)discovered on every coordinator update, so items
+    created through the management services show up without a reload.
+    """
     coordinator: WalletDataUpdateCoordinator = entry.runtime_data.coordinator
-    data = coordinator.data
-    selected_accounts = coordinator._selected_account_ids(data.accounts)
 
-    entities: list[CoordinatorEntity] = [
-        WalletCashFlowSensor(coordinator, entry),
-        WalletSpendingSensor(coordinator, entry),
-        WalletSpendingByCardinalitySensor(coordinator, entry),
-        WalletLastRecordsSensor(coordinator, entry),
-        WalletCreditUtilizationSensor(coordinator, entry),
-        WalletApiUsageSensor(coordinator, entry),
-        WalletStandingOrdersSensor(coordinator, entry),
-        WalletRecordRulesSensor(coordinator, entry),
-    ]
+    async_add_entities(
+        [
+            WalletCashFlowSensor(coordinator, entry),
+            WalletSpendingSensor(coordinator, entry),
+            WalletSpendingByCardinalitySensor(coordinator, entry),
+            WalletLastRecordsSensor(coordinator, entry),
+            WalletCreditUtilizationSensor(coordinator, entry),
+            WalletApiUsageSensor(coordinator, entry),
+            WalletStandingOrdersSensor(coordinator, entry),
+            WalletRecordRulesSensor(coordinator, entry),
+            WalletCategoriesSensor(coordinator, entry),
+            WalletLabelsSensor(coordinator, entry),
+        ]
+    )
 
-    # One sensor per savings goal.
-    for goal in data.goals:
-        goal_id = goal.get("id")
-        if goal_id is not None:
-            entities.append(WalletGoalSensor(coordinator, entry, str(goal_id)))
+    known_accounts: set[str] = set()
+    known_currencies: set[str] = set()
+    known_budgets: set[str] = set()
+    known_goals: set[str] = set()
 
-    tracked = [a for a in data.accounts if str(a.get("id")) in selected_accounts]
+    @callback
+    def _discover() -> None:
+        data = coordinator.data
+        if data is None:
+            return
+        new: list[CoordinatorEntity] = []
+        selected_accounts = coordinator._selected_account_ids(data.accounts)
+        tracked = [a for a in data.accounts if str(a.get("id")) in selected_accounts]
 
-    # One balance sensor per account.
-    for account in tracked:
-        entities.append(WalletAccountSensor(coordinator, entry, str(account["id"])))
+        for account in tracked:
+            aid = str(account.get("id"))
+            if aid not in known_accounts:
+                known_accounts.add(aid)
+                new.append(WalletAccountSensor(coordinator, entry, aid))
 
-    # One total per distinct currency across the tracked accounts.
-    for currency in sorted(
-        {(_account_balance(a).get("currencyCode")) for a in tracked} - {None}
-    ):
-        entities.append(WalletBalanceByCurrencySensor(coordinator, entry, currency))
+        for currency in {_account_balance(a).get("currencyCode") for a in tracked}:
+            if currency and currency not in known_currencies:
+                known_currencies.add(currency)
+                new.append(WalletBalanceByCurrencySensor(coordinator, entry, currency))
 
-    # One sensor per selected budget (default: all budgets).
-    selected_budgets = entry.options.get(CONF_BUDGET_IDS)
-    for budget in data.budgets:
-        budget_id = str(budget.get("id"))
-        if selected_budgets and budget_id not in selected_budgets:
-            continue
-        entities.append(WalletBudgetSensor(coordinator, entry, budget_id))
+        selected_budgets = entry.options.get(CONF_BUDGET_IDS)
+        for budget in data.budgets:
+            bid = str(budget.get("id"))
+            if budget.get("id") is None or bid in known_budgets:
+                continue
+            if selected_budgets and bid not in selected_budgets:
+                continue
+            known_budgets.add(bid)
+            new.append(WalletBudgetSensor(coordinator, entry, bid))
 
-    async_add_entities(entities)
+        for goal in data.goals:
+            gid = goal.get("id")
+            if gid is not None and str(gid) not in known_goals:
+                known_goals.add(str(gid))
+                new.append(WalletGoalSensor(coordinator, entry, str(gid)))
+
+        if new:
+            async_add_entities(new)
+
+    _discover()
+    entry.async_on_unload(coordinator.async_add_listener(_discover))
 
 
 def _account_balance(account: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -586,3 +614,72 @@ class WalletRecordRulesSensor(WalletBaseSensor):
             for rule in self._wallet.record_rules
         ]
         return {ATTR_RULES: rules}
+
+
+class WalletCategoriesSensor(WalletBaseSensor):
+    """Count of categories; the list (with ids) is an attribute.
+
+    Exposes ids so the management services can be used: `category_id` for
+    patch/delete and `parent_id` (a base category id) when creating a custom
+    subcategory.
+    """
+
+    _attr_translation_key = "categories"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_icon = "mdi:shape"
+
+    def __init__(self, coordinator, entry) -> None:  # noqa: ANN001
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_categories"
+
+    @property
+    def native_value(self) -> int:
+        return len(self._wallet.categories)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        categories = [
+            {
+                "id": category.get("id"),
+                "name": category.get("name"),
+                "custom": category.get("customCategory"),
+                "parent_id": category.get("parentId"),
+                "cardinality": category.get("cardinality"),
+            }
+            for category in self._wallet.categories
+        ]
+        return {ATTR_CATEGORIES: categories}
+
+
+class WalletLabelsSensor(WalletBaseSensor):
+    """Count of labels; the list (with ids) is an attribute.
+
+    Exposes `id` so labels can be applied via `label_ids` on records and
+    patched via `manage_label`.
+    """
+
+    _attr_translation_key = "labels"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_icon = "mdi:label"
+
+    def __init__(self, coordinator, entry) -> None:  # noqa: ANN001
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_labels"
+
+    @property
+    def native_value(self) -> int:
+        return len(self._wallet.labels)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        labels = [
+            {
+                "id": label.get("id"),
+                "name": label.get("name"),
+                "archived": label.get("archived"),
+            }
+            for label in self._wallet.labels
+        ]
+        return {ATTR_LABELS: labels}

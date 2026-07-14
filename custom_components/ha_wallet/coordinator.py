@@ -70,6 +70,8 @@ class WalletData:
 
     accounts: list[dict[str, Any]] = field(default_factory=list)
     budgets: list[dict[str, Any]] = field(default_factory=list)
+    categories: list[dict[str, Any]] = field(default_factory=list)
+    labels: list[dict[str, Any]] = field(default_factory=list)
     goals: list[dict[str, Any]] = field(default_factory=list)
     standing_orders: list[dict[str, Any]] = field(default_factory=list)
     record_rules: list[dict[str, Any]] = field(default_factory=list)
@@ -162,6 +164,7 @@ class WalletDataUpdateCoordinator(DataUpdateCoordinator[WalletData]):
 
         budgets = await self._guarded(self.client.async_get_budgets())
         categories = await self._guarded(self.client.async_get_categories())
+        labels = await self._guarded(self.client.async_get_labels())
         goals = await self._guarded(self.client.async_get_goals())
         standing_orders = await self._guarded(self.client.async_get_standing_orders())
         record_rules = await self._guarded(self.client.async_get_record_rules())
@@ -197,6 +200,8 @@ class WalletDataUpdateCoordinator(DataUpdateCoordinator[WalletData]):
         return WalletData(
             accounts=accounts,
             budgets=budgets,
+            categories=categories,
+            labels=labels,
             goals=goals,
             standing_orders=standing_orders,
             record_rules=record_rules,

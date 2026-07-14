@@ -234,7 +234,9 @@
       "credit_utilization": { "name": "Credit utilization" },
       "api_usage": { "name": "API requests remaining" },
       "standing_orders": { "name": "Standing orders" },
-      "record_rules": { "name": "Record rules" }
+      "record_rules": { "name": "Record rules" },
+      "categories": { "name": "Categories" },
+      "labels": { "name": "Labels" }
     }
   }
 }

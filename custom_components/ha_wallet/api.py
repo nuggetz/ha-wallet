@@ -254,6 +254,10 @@ class WalletApiClient:
         """Return record auto-categorisation rules."""
         return await self._get_collection("/record-rules", "recordRules")
 
+    async def async_get_labels(self) -> list[dict[str, Any]]:
+        """Return labels (for id discovery and applying via label_ids)."""
+        return await self._get_collection("/labels", "labels")
+
     async def async_get_records(
         self,
         *,
