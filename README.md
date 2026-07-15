@@ -166,9 +166,10 @@ part of the separate **ha-wallet-card** project.
 
 ## Companion dashboard card
 
-A dedicated Lovelace panel, **ha-wallet-card**, is planned as a separate project
-to give these entities a proper place to look. **Coming soon** — this repo ships
-the integration (entities & services) only.
+A dedicated Lovelace panel, **[ha-wallet-card](https://github.com/nuggetz/ha-wallet-card)**,
+gives these entities a proper place to look. It's a **separate project** — this
+repo ships the integration (entities & services); install the card from its own
+repository. Optional: the integration is fully usable without it.
 
 ## Development status
 
