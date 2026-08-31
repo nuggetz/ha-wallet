@@ -9,8 +9,8 @@
 
 Bring your **[Wallet by BudgetBakers][wallet]** finances into Home Assistant over
 the **official Wallet REST API** — see balances, budgets and spending as
-entities, and (from a later milestone) log cash expenses from a home wall panel
-straight back into the Wallet app.
+entities, and log cash expenses from a home wall panel straight back into the
+Wallet app.
 
 > **Unofficial / not affiliated.** This is a community integration. It is not
 > made by, endorsed by, or affiliated with BudgetBakers. "Wallet by
@@ -19,8 +19,8 @@ straight back into the Wallet app.
 ## Why this integration
 
 - **Bidirectional & app-synced** — the only Home Assistant finance integration
-  that both reads *and* writes to a real mobile app you already use (cash entry
-  lands in a later milestone). Others are read-only mirrors or local-only tools.
+  that both reads *and* writes to a real mobile app you already use. Others are
+  read-only mirrors or local-only tools.
 - **Private by design** — runs locally, your token stays on your instance, and
   bank-synced accounts are read-only. Nothing is sent to a third party.
 - **Multi-currency & i18n from day one** — currency is inherited from Wallet per
@@ -30,7 +30,7 @@ straight back into the Wallet app.
 
 - A **Wallet Premium** plan and a **Bearer token** from the Wallet web app
   (Settings → API). The token maps to one Wallet account.
-- Home Assistant **2024.12** or newer.
+- Home Assistant **2025.6** or newer.
 
 The Premium requirement is inherent to the official API — this integration is
 built on the supported API rather than a fragile email/notification hack.
@@ -54,9 +54,51 @@ built on the supported API rather than a fragile email/notification hack.
 - The token is stored in Home Assistant's encrypted config entry and **never
   logged**.
 - Bank-synced accounts are **read-only** by API design; the integration can only
-  write to cash/manual accounts (write features land in a later milestone).
+  write to cash/manual accounts.
+
+## Entities
+
+All entities live on a single **Wallet by BudgetBakers** service device. Account,
+balance, budget and goal sensors are created **one per object in your Wallet**, so
+the exact count depends on your setup; the rest are singletons. Entities that
+appear after you create an object via a service show up **without a restart**.
+
+Monetary sensors carry `device_class: monetary`. Sensors whose state is a count
+expose the detail in attributes — including the **object ids** the services need,
+which is how you discover them from the UI.
+
+| Entity | State | Key attributes |
+|---|---|---|
+| `sensor.wallet_by_budgetbakers_account_<name>` | account balance | `account_id`, `account_type`, `currency`, `bank_synced`, `last_change` |
+| `sensor.wallet_by_budgetbakers_balance_<currency>` | total balance in that currency | `account_ids`, `currency` |
+| `sensor.wallet_by_budgetbakers_cash_flow` | net (income − expense) for the period | `income`, `expense`, `currency`, `vs_previous_pct`, `period` |
+| `sensor.wallet_by_budgetbakers_spending` | total expense for the period | `vs_previous_pct`, `by_category`, `currency`, `period` |
+| `sensor.wallet_by_budgetbakers_spending_by_nature` | total expense for the period | `must`, `need`, `want`, `currency`, `period` |
+| `sensor.wallet_by_budgetbakers_budget_<name>` | amount spent against the budget | `budget_id`, `limit`, `remaining`, `period`, `category_ids`, `currency` |
+| `sensor.wallet_by_budgetbakers_last_records` | count of recent records | `records` (list incl. **record id**, amount, category, account, date, note) |
+| `sensor.wallet_by_budgetbakers_credit_utilization` | used credit (best-effort, may be `unknown`) | `credit_balance`, `total_credit_limit`, `available` |
+| `sensor.wallet_by_budgetbakers_goal_<name>` | goal target amount | `goal_state`, `desired_date`, `initial_amount`, `currency` |
+| `sensor.wallet_by_budgetbakers_standing_orders` | count of standing orders | `orders` (list incl. **standing order id**, name, amount, due date) |
+| `sensor.wallet_by_budgetbakers_record_rules` | count of record rules | `rules` (list incl. **rule id**, name, keywords, category) |
+| `sensor.wallet_by_budgetbakers_categories` | count of categories | `categories` (list incl. **category id**, name, custom, parent, cardinality) |
+| `sensor.wallet_by_budgetbakers_labels` | count of labels | `labels` (list incl. **label id**, name, archived) |
+| `sensor.wallet_by_budgetbakers_api_requests_remaining` | requests left this hour | `limit`, `reset_at` |
+
+The last four are **diagnostic** entities: their job is to make ids readable so you
+can pass them to the services below.
+
+Aggregates cover every record state **except `void`**. Totals are reported in the
+account's native currency when a single currency is involved, and in your Wallet
+profile's base currency when several are mixed.
 
 ## Services
+
+> **Permissions.** Services that delete data, move money between accounts or
+> change your Wallet structure (`delete_record`, `add_transfer`,
+> `delete_standing_order`, `delete_record_rule` and the four `manage_*`) are
+> registered as **admin-only** — a shared wall panel is exactly the place where a
+> non-admin user reaches the service registry. `add_record` and `update_record`
+> stay available to every user, since logging a cash expense is the point.
 
 ### `ha_wallet.add_record`
 

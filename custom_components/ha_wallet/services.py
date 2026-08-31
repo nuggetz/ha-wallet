@@ -20,6 +20,7 @@ from homeassistant.core import (
 )
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.service import async_register_admin_service
 from homeassistant.util import dt as dt_util
 
 from .api import WalletApiError, WalletRecordError
@@ -403,7 +404,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
     if hass.services.has_service(DOMAIN, SERVICE_ADD_RECORD):
         return
     # Imported lazily to avoid a circular import (management uses helpers here).
-    from .management import management_services
+    from .management import MANAGEMENT_SERVICE_NAMES, management_services
 
     services = (
         (SERVICE_ADD_RECORD, _handle_add_record, ADD_RECORD_SCHEMA),
@@ -422,7 +423,28 @@ def async_setup_services(hass: HomeAssistant) -> None:
         ),
         *management_services(),
     )
+    # Destructive and structural services are admin-only. The flagship setup is a
+    # shared wall panel, which is exactly where a non-admin or guest user reaches
+    # the service registry — and every one of these writes to real financial data.
+    # add_record/update_record stay open: logging a cash expense is the point.
+    admin_only = {
+        SERVICE_DELETE_RECORD,
+        SERVICE_ADD_TRANSFER,
+        SERVICE_DELETE_STANDING_ORDER,
+        SERVICE_DELETE_RECORD_RULE,
+        *MANAGEMENT_SERVICE_NAMES,
+    }
     for name, handler, schema in services:
+        if name in admin_only:
+            async_register_admin_service(
+                hass,
+                DOMAIN,
+                name,
+                handler,
+                schema=schema,
+                supports_response=SupportsResponse.OPTIONAL,
+            )
+            continue
         hass.services.async_register(
             DOMAIN,
             name,
