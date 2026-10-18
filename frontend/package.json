@@ -1,0 +1,39 @@
+{
+  "name": "ha-wallet-card",
+  "version": "0.1.2",
+  "description": "Lovelace cards bundled with the Wallet by BudgetBakers Home Assistant integration (unofficial).",
+  "type": "module",
+  "license": "MIT",
+  "author": "nugg3tz",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nuggetz/ha-wallet.git"
+  },
+  "keywords": [
+    "home-assistant",
+    "lovelace",
+    "custom-card",
+    "wallet",
+    "budgetbakers",
+    "hacs"
+  ],
+  "scripts": {
+    "build": "rollup -c",
+    "watch": "rollup -c --watch",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "custom-card-helpers": "^1.9.0",
+    "lit": "^3.1.4"
+  },
+  "devDependencies": {
+    "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^11.1.6",
+    "rollup": "^4.18.0",
+    "tslib": "^2.6.3",
+    "typescript": "^5.4.5"
+  },
+  "private": true
+}

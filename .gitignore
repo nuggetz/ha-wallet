@@ -19,3 +19,8 @@ dist/
 *.egg-info/
 .mypy_cache/
 .ruff_cache/
+
+# Frontend (cards). The built bundle in custom_components/ha_wallet/www/ is committed.
+node_modules/
+.rollup.cache/
+*.tsbuildinfo

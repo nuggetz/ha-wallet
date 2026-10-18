@@ -4,7 +4,8 @@ Unofficial Home Assistant integration for Wallet by BudgetBakers, built on the
 official Wallet REST API. Not affiliated with BudgetBakers.
 
 Sets up the API client and the polling coordinator, forwards the sensor
-platform (M1 read core) and registers the cash-entry services (M2).
+platform (M1 read core) and registers the cash-entry services (M2). The
+bundled Lovelace cards are served and loaded once, from ``async_setup``.
 """
 
 from __future__ import annotations
@@ -14,14 +15,19 @@ from dataclasses import dataclass
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.typing import ConfigType
 
 from .api import WalletApiClient
+from .cards import async_register_cards
 from .const import CONF_TOKEN, DOMAIN
 from .coordinator import WalletDataUpdateCoordinator
 from .services import async_setup_services, async_unload_services
 
 PLATFORMS: list[Platform] = [Platform.SENSOR]
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 @dataclass(slots=True)
@@ -33,6 +39,12 @@ class WalletRuntimeData:
 
 
 type WalletConfigEntry = ConfigEntry[WalletRuntimeData]
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Serve the bundled cards; runs once, before any entry is set up."""
+    await async_register_cards(hass)
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: WalletConfigEntry) -> bool:

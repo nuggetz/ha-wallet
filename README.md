@@ -37,13 +37,11 @@ built on the supported API rather than a fragile email/notification hack.
 
 ## Installation (HACS)
 
-1. In HACS, add this repository as a **custom repository** (category:
-   *Integration*): `https://github.com/nuggetz/ha-wallet`.
-2. Search for **Wallet by BudgetBakers** in HACS and install it.
-3. Restart Home Assistant.
-4. Go to **Settings → Devices & Services → Add Integration**, search for
+1. In HACS, search for **Wallet by BudgetBakers** and install it.
+2. Restart Home Assistant.
+3. Go to **Settings → Devices & Services → Add Integration**, search for
    **Wallet by BudgetBakers**, and paste your API token.
-5. Use the integration's **Configure** button to pick which accounts to expose
+4. Use the integration's **Configure** button to pick which accounts to expose
    and the reporting period.
 
 > If your token is later rejected, Home Assistant will prompt you to
@@ -203,15 +201,109 @@ Colours use Wallet's named palette (e.g. `Blue`, `Green`, `Orange`).
 A ready-made helper package (amount / expense-income / payment type / note plus
 a one-tap script) lives in [`examples/wall-panel-package.yaml`](examples/wall-panel-package.yaml).
 Drop it into your `packages/` folder, point it at a cash account id, and add the
-Lovelace card shown at the bottom of that file. A polished quick-add form card is
-part of the separate **ha-wallet-card** project.
+Lovelace card shown at the bottom of that file. For a ready-made keypad, use the
+bundled `wallet-quick-add-card` (see [Dashboard cards](#dashboard-cards)).
 
-## Companion dashboard card
+## Dashboard cards
 
-A dedicated Lovelace panel, **[ha-wallet-card](https://github.com/nuggetz/ha-wallet-card)**,
-gives these entities a proper place to look. It's a **separate project** — this
-repo ships the integration (entities & services); install the card from its own
-repository. Optional: the integration is fully usable without it.
+The integration ships a set of 21 Lovelace cards that reproduce the Wallet web
+dashboard as native, theme-aware Home Assistant cards. **Nothing to install
+separately:** once the integration is set up, the cards are loaded on every
+dashboard (storage and YAML mode) and appear in the card picker under
+*Wallet · …*. After an upgrade, reload the browser once.
+
+<p align="center">
+  <img src="assets/showcase-spending.png" alt="Spending gauge card" height="320" />
+  &nbsp;
+  <img src="assets/showcase-expenses-structure.png" alt="Expenses Structure donut card" height="320" />
+  &nbsp;
+  <img src="assets/showcase-quick-add.png" alt="Quick-Add keypad card" height="320" />
+</p>
+
+> **Upgrading from the standalone `ha-wallet-card` plugin?** The cards now live
+> here, and the separate repository is archived. Remove **Wallet by BudgetBakers
+> Cards** from HACS (or delete the `/hacsfiles/ha-wallet-card/ha-wallet-card.js`
+> or `/local/ha-wallet-card.js` dashboard resource), then reload the browser.
+> Card types are unchanged, so existing dashboards keep working.
+
+Every card is theme-aware (light/dark, HA theme variables) and ships four states:
+**default**, **empty**, **loading** (skeleton) and **error** (stale badge / can't-reach hint).
+
+### Analytic (12)
+
+| Card type | Reads |
+|---|---|
+| `wallet-cash-flow-card` | `sensor.wallet_by_budgetbakers_cash_flow` |
+| `wallet-cash-flow-trend-card` | history/LTS of `…_cash_flow` |
+| `wallet-spending-card` | `…_spending` (gauge) |
+| `wallet-nature-of-spending-card` | `…_spending_by_cardinality` |
+| `wallet-balance-by-currencies-card` | `…_balance_<currency>` (all) |
+| `wallet-spending-by-categories-card` | `…_spending` → `by_category` |
+| `wallet-credit-limits-card` | `…_credit_utilization` |
+| `wallet-balance-trend-card` | history/LTS of `…_balance_<currency>` |
+| `wallet-expenses-structure-card` | `…_spending` → `by_category` (donut) |
+| `wallet-period-comparison-card` | history/LTS of `…_cash_flow` |
+| `wallet-last-records-card` | `…_last_records` → `records` |
+| `wallet-accounts-card` | `…_account_<name>` (all) |
+
+### Quick entry (1)
+
+| Card type | Calls |
+|---|---|
+| `wallet-quick-add-card` | `ha_wallet.add_record` (keypad, category chips, account picker) |
+
+### Action / write-side (8)
+
+| Card type | Calls |
+|---|---|
+| `wallet-records-action-card` | `add_record` / `update_record` / `delete_record` |
+| `wallet-transfer-card` | `add_transfer` |
+| `wallet-budgets-action-card` | `manage_budget` |
+| `wallet-categories-action-card` | `manage_category` |
+| `wallet-accounts-action-card` | `manage_account` (create/patch) |
+| `wallet-labels-action-card` | `manage_label` (create/patch) |
+| `wallet-automations-action-card` | `delete_standing_order` / `delete_record_rule` |
+| `wallet-import-history-card` | `ha_wallet.import_history`, **only shown if the service exists** (deferred to 0.1.x) |
+
+Write cards that call an admin-only service (see [Services](#services)) only work
+for admin users.
+
+### Usage
+
+Each card auto-discovers its entity from the Wallet device, or you can pin it:
+
+```yaml
+# Auto-discovers the cash-flow sensor from the Wallet device
+type: custom:wallet-cash-flow-card
+
+# Or bind an explicit entity / title
+type: custom:wallet-spending-card
+entity: sensor.wallet_by_budgetbakers_spending
+title: Spending
+```
+
+The Quick-Add and action cards need no entity. They enumerate accounts, categories
+and labels from the device and call services:
+
+```yaml
+type: custom:wallet-quick-add-card
+```
+
+Bank-synced accounts are read-only: the write cards block record creation, edit and
+delete on them and surface the integration's error inline. Trends read Home
+Assistant long-term statistics, so a fresh install fills from install date forward.
+
+### Building the cards
+
+The TypeScript source lives in [`frontend/`](frontend/); the built bundle is
+committed at `custom_components/ha_wallet/www/ha-wallet-card.js`.
+
+```bash
+cd frontend
+npm ci
+npm run lint      # tsc --noEmit
+npm run build     # src/ → ../custom_components/ha_wallet/www/ha-wallet-card.js
+```
 
 ## Development status
 
@@ -234,6 +326,6 @@ is `0.1.0`**, cut once the full v1 API surface is complete.
 [MIT](LICENSE) © nugg3tz
 
 [wallet]: https://budgetbakers.com/
-[hacs-badge]: https://img.shields.io/badge/HACS-Custom-41BDF5.svg
+[hacs-badge]: https://img.shields.io/badge/HACS-Default-41BDF5.svg
 [hacs-url]: https://hacs.xyz/
 [license-badge]: https://img.shields.io/badge/license-MIT-blue.svg
