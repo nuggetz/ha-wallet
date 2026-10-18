@@ -1,0 +1,51 @@
+<svg width="1280" height="640" viewBox="0 0 1280 640" xmlns="http://www.w3.org/2000/svg">
+  <!-- GitHub social preview (1280x640). Same visual language as assets/header.png. -->
+  <rect width="1280" height="640" fill="#0B0E14"/>
+  <rect x="4" y="4" width="1272" height="632" fill="none" stroke="#E8ECF2" stroke-opacity="0.06" stroke-width="2"/>
+
+  <!-- HUD corner brackets -->
+  <g stroke="#E8ECF2" stroke-opacity="0.30" stroke-width="4" fill="none" stroke-linecap="square">
+    <path d="M40 78 V40 H78"/>
+    <path d="M1202 40 H1240 V78"/>
+    <path d="M1240 562 V600 H1202"/>
+    <path d="M78 600 H40 V562"/>
+  </g>
+
+  <!-- HUD readouts -->
+  <text x="64" y="52" font-family="DejaVu Sans Mono, monospace" font-size="15" letter-spacing="3" fill="#8892A4">HA//WALLET · REST://budgetbakers</text>
+  <text x="1216" y="52" text-anchor="end" font-family="DejaVu Sans Mono, monospace" font-size="15" letter-spacing="3" fill="#8892A4">37.235N 115.811W</text>
+  <circle cx="1018" cy="583" r="6" fill="#C6FF3A"/>
+  <text x="1036" y="589" font-family="DejaVu Sans Mono, monospace" font-size="15" letter-spacing="2" fill="#8892A4">IN HACS DEFAULT</text>
+
+  <!-- W mark tile -->
+  <g transform="translate(70,186) scale(0.52)">
+    <rect width="512" height="512" rx="112" fill="#0B0E14"/>
+    <rect x="6" y="6" width="500" height="500" rx="106" fill="none" stroke="#E8ECF2" stroke-opacity="0.09" stroke-width="2"/>
+    <g stroke="#E8ECF2" stroke-opacity="0.28" stroke-width="6" fill="none" stroke-linecap="square">
+      <path d="M60 100 V60 H100"/><path d="M412 60 H452 V100"/>
+      <path d="M452 412 V452 H412"/><path d="M100 452 H60 V412"/>
+    </g>
+    <g fill="none" stroke-width="46" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="7">
+      <polyline points="140,188 198,332 256,210 314,332 374,172" stroke="#C6FF3A" stroke-opacity="0.9" transform="translate(-7,4)"/>
+      <polyline points="140,188 198,332 256,210 314,332 374,172" stroke="#FF2E97" stroke-opacity="0.9" transform="translate(7,-4)"/>
+      <polyline points="140,188 198,332 256,210 314,332 374,172" stroke="#FF7A1A"/>
+    </g>
+  </g>
+
+  <!-- amber signature bar -->
+  <rect x="392" y="226" width="86" height="8" fill="#FF7A1A"/>
+
+  <!-- wordmark with RGB glitch split -->
+  <g transform="translate(390,335) scale(1.14,1)" font-family="DejaVu Sans, sans-serif" font-weight="bold" font-size="118" letter-spacing="1">
+    <text x="0" y="0" fill="#C6FF3A" fill-opacity="0.9" transform="translate(-4,3)">ha-wallet</text>
+    <text x="0" y="0" fill="#FF2E97" fill-opacity="0.9" transform="translate(4,-3)">ha-wallet</text>
+    <text x="0" y="0" fill="#E8ECF2">ha-wallet</text>
+  </g>
+
+  <!-- tagline -->
+  <text x="392" y="392" font-family="DejaVu Sans Mono, monospace" font-size="19" letter-spacing="4" fill="#8892A4">WALLET BY BUDGETBAKERS · UNOFFICIAL · HOME ASSISTANT</text>
+  <text x="392" y="430" font-family="DejaVu Sans Mono, monospace" font-size="17" letter-spacing="3" fill="#E8ECF2" fill-opacity="0.85">read + write · cash entry · 21 dashboard cards included</text>
+
+  <!-- small nugg3tz sig -->
+  <text x="392" y="476" font-family="DejaVu Sans Mono, monospace" font-size="15" letter-spacing="3" fill="#FF7A1A">by nugg3tz</text>
+</svg>

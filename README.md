@@ -37,15 +37,29 @@ built on the supported API rather than a fragile email/notification hack.
 
 ## Installation (HACS)
 
-1. In HACS, search for **Wallet by BudgetBakers** and install it.
+[![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=nuggetz&repository=ha-wallet&category=integration)
+
+1. Open HACS, search for **Wallet by BudgetBakers** and download it (or use the
+   button above).
 2. Restart Home Assistant.
-3. Go to **Settings → Devices & Services → Add Integration**, search for
-   **Wallet by BudgetBakers**, and paste your API token.
+3. Add the integration and paste your API token:
+
+   [![Open your Home Assistant instance and start setting up Wallet by BudgetBakers.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=ha_wallet)
+
+   or go to **Settings → Devices & Services → Add Integration** and search for
+   **Wallet by BudgetBakers**.
 4. Use the integration's **Configure** button to pick which accounts to expose
    and the reporting period.
 
 > If your token is later rejected, Home Assistant will prompt you to
 > **re-authenticate** — just paste a fresh token.
+
+### Manual installation
+
+Only needed if you don't run HACS: copy `custom_components/ha_wallet/` from the
+[latest release](https://github.com/nuggetz/ha-wallet/releases/latest) into your
+`config/custom_components/` folder, restart Home Assistant and continue from step 3
+above. The dashboard cards are included in that folder.
 
 ## Privacy & data handling
 
@@ -327,5 +341,5 @@ is `0.1.0`**, cut once the full v1 API surface is complete.
 
 [wallet]: https://budgetbakers.com/
 [hacs-badge]: https://img.shields.io/badge/HACS-Default-41BDF5.svg
-[hacs-url]: https://hacs.xyz/
+[hacs-url]: https://github.com/hacs/default
 [license-badge]: https://img.shields.io/badge/license-MIT-blue.svg
