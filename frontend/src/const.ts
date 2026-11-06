@@ -8,11 +8,14 @@
  * documented key suffixes below.
  */
 
-export const CARD_VERSION = "0.1.2";
+export const CARD_VERSION = "0.1.3";
 export const DOMAIN = "ha_wallet";
 
 /** Device name used by the integration (has_entity_name single device). */
 export const DEVICE_NAME = "Wallet by BudgetBakers";
+
+/** Attribution every ha_wallet entity carries (const.py ATTRIBUTION). */
+export const ATTRIBUTION = "Data provided by the Wallet by BudgetBakers REST API";
 
 /** Prefix of the real, built entity ids. */
 export const ENTITY_PREFIX = "sensor.wallet_by_budgetbakers_";

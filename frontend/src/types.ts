@@ -40,7 +40,7 @@ export interface HomeAssistant {
   locale: HassLocale;
   language: string;
   themes: { darkMode?: boolean; [key: string]: unknown };
-  entities?: Record<string, { device_id?: string; entity_id: string }>;
+  entities?: Record<string, { device_id?: string; entity_id: string; platform?: string }>;
   devices?: Record<string, { id: string; name?: string; name_by_user?: string }>;
   callService: (
     domain: string,

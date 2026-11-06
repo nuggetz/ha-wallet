@@ -1,4 +1,4 @@
-import { DEVICE_NAME, DOMAIN, ENTITY_PREFIX, KEY, PREFIX } from "../const";
+import { ATTRIBUTION, DEVICE_NAME, DOMAIN, ENTITY_PREFIX, KEY, PREFIX } from "../const";
 import type { HassEntity, HomeAssistant } from "../types";
 
 /**
@@ -11,29 +11,51 @@ import type { HassEntity, HomeAssistant } from "../types";
  * enumerated by their key prefix (§5.2 / §5.3).
  */
 
-/** Entity ids belonging to the ha_wallet device (registry-based when possible). */
+/** Marker every built entity id contains (device name slug), wherever HA put it. */
+const ID_MARKER = ENTITY_PREFIX.replace(/^sensor\./, "");
+
+/**
+ * Key of a wallet entity id: the part after `wallet_by_budgetbakers_`, or null.
+ * HA can put text before the device slug (e.g. an area or a renamed device:
+ * `sensor.sistema_wallet_by_budgetbakers_account_cash`), so the marker is
+ * searched anywhere in the id, not only right after `sensor.`.
+ */
+export function entityKey(id: string): string | null {
+  const i = id.indexOf(ID_MARKER);
+  return i < 0 ? null : id.slice(i + ID_MARKER.length);
+}
+
+/** Entity ids belonging to the ha_wallet integration (registry-based when possible). */
 export function walletEntityIds(hass: HomeAssistant): string[] {
   const ids = new Set<string>();
 
-  // 1. Registry path: find the device(s) named like the integration, then its
-  //    entities. Most robust — survives entity renames.
+  // 1. Registry path: entities whose platform is ha_wallet, or that sit on the
+  //    integration's device. Survives entity and device renames.
   const deviceIds = new Set<string>();
   if (hass.devices) {
     for (const dev of Object.values(hass.devices)) {
-      const name = dev.name_by_user || dev.name || "";
-      if (name === DEVICE_NAME) deviceIds.add(dev.id);
+      const names = [dev.name_by_user, dev.name].filter(Boolean) as string[];
+      if (names.some((n) => n.includes(DEVICE_NAME))) deviceIds.add(dev.id);
     }
   }
-  if (hass.entities && deviceIds.size) {
+  if (hass.entities) {
     for (const ent of Object.values(hass.entities)) {
-      if (ent.device_id && deviceIds.has(ent.device_id)) ids.add(ent.entity_id);
+      if (
+        ent.platform === DOMAIN ||
+        (ent.device_id && deviceIds.has(ent.device_id))
+      ) {
+        if (hass.states[ent.entity_id]) ids.add(ent.entity_id);
+      }
     }
   }
 
-  // 2. Fallback: match the documented id prefix directly against hass.states.
+  // 2. Fallback: the device slug anywhere in the id, or the integration's attribution.
   if (!ids.size) {
-    for (const id of Object.keys(hass.states)) {
-      if (id.startsWith(ENTITY_PREFIX)) ids.add(id);
+    for (const [id, st] of Object.entries(hass.states)) {
+      if (!id.startsWith("sensor.")) continue;
+      if (id.includes(ID_MARKER) || st.attributes?.attribution === ATTRIBUTION) {
+        ids.add(id);
+      }
     }
   }
   return [...ids];
@@ -55,9 +77,14 @@ export function findSingleton(
   if (override && hass.states[override]) return hass.states[override];
   const direct = hass.states[ENTITY_PREFIX + key];
   if (direct) return direct;
-  // Match by entity-id suffix among the device's entities.
+  // Exact key among the integration's entities (any text before the device slug).
+  const ids = walletEntityIds(hass);
+  for (const id of ids) {
+    if (entityKey(id) === key && hass.states[id]) return hass.states[id];
+  }
+  // Match by entity-id suffix (entity renamed but key kept at the end).
   const suffix = `_${key}`;
-  for (const id of walletEntityIds(hass)) {
+  for (const id of ids) {
     if (id.endsWith(suffix) && hass.states[id]) return hass.states[id];
   }
   // Attribute-based fallback: robust to naming / localization.
@@ -70,27 +97,27 @@ export function findSingleton(
   return undefined;
 }
 
+/**
+ * Attribute that only the per-item sensors of a prefix carry. Used when the
+ * entity id does not reveal the key (entity renamed by the user).
+ */
+const PREFIX_ATTR: Record<string, string> = {
+  [PREFIX.account]: "account_id",
+  [PREFIX.balance]: "account_ids",
+  [PREFIX.budget]: "budget_id",
+};
+
 /** All sensors whose key starts with a dynamic prefix (account_, balance_, …). */
 export function findByPrefix(hass: HomeAssistant, prefix: string): HassEntity[] {
+  const attr = PREFIX_ATTR[prefix];
   const out: HassEntity[] = [];
-  const full = ENTITY_PREFIX + prefix;
-  const seen = new Set<string>();
-  for (const id of Object.keys(hass.states)) {
-    if (id.startsWith(full) && !seen.has(id)) {
-      seen.add(id);
-      out.push(hass.states[id]);
-    }
-  }
-  // Registry-discovered ids may differ from the prefix convention (renames);
-  // include device sensors that carry the matching attributes as a safety net.
-  if (!out.length) {
-    for (const id of walletEntityIds(hass)) {
-      const key = id.replace(ENTITY_PREFIX, "");
-      if (key.startsWith(prefix) && !seen.has(id)) {
-        seen.add(id);
-        out.push(hass.states[id]);
-      }
-    }
+  for (const id of walletEntityIds(hass)) {
+    const st = hass.states[id];
+    if (!st) continue;
+    const key = entityKey(id);
+    const byKey = key !== null && key.startsWith(prefix);
+    const byAttr = key === null && attr !== undefined && attr in st.attributes;
+    if (byKey || byAttr) out.push(st);
   }
   return out;
 }
