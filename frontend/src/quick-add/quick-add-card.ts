@@ -2,8 +2,7 @@ import { html, type TemplateResult } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { WalletBaseCard } from "../core/base-card";
 import { listAccounts, listCategories, type AccountInfo } from "../core/accounts";
-import { categoryColor, tint } from "../core/colors";
-import { categoryIcon } from "../core/ui";
+import { categorySelect } from "../core/ui";
 import { formatMoney } from "../core/format";
 import { skeletonRows } from "../core/states";
 import { COLOR, DOMAIN, SERVICE } from "../const";
@@ -120,28 +119,11 @@ export class WalletQuickAddCard extends WalletBaseCard {
   }
 
   private categorySection(categories: WalletCategory[]): TemplateResult {
-    const list = categories.filter((c) => c.name);
-    if (!list.length) return html``;
+    if (!categories.some((c) => c.name)) return html``;
     return html`
-      <span class="label">Category</span>
-      <div class="pill-row" style="margin:6px 0 12px">
-        ${list.slice(0, 12).map((c) => {
-          const color = categoryColor(c.name, categories);
-          const on = this._categoryId === c.id;
-          return html`<button
-            class="pill"
-            style=${on
-              ? `border-color:${color};background:${tint(color, 0.13)}`
-              : ""}
-            @click=${() => (this._categoryId = on ? null : c.id)}
-          >
-            <ha-icon
-              icon=${categoryIcon(c.name)}
-              style="--mdc-icon-size:18px;color:${color}"
-            ></ha-icon>
-            ${c.name}
-          </button>`;
-        })}
+      <div class="field" style="margin-bottom:12px">
+        <label>Category</label>
+        ${categorySelect(categories, this._categoryId, (id) => (this._categoryId = id))}
       </div>
     `;
   }

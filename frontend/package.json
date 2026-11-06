@@ -1,6 +1,6 @@
 {
   "name": "ha-wallet-card",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Lovelace cards bundled with the Wallet by BudgetBakers Home Assistant integration (unofficial).",
   "type": "module",
   "license": "MIT",

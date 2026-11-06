@@ -256,6 +256,30 @@ export const sharedStyles = css`
     cursor: not-allowed;
   }
 
+  /* capped lists (Show more) */
+  .scroll-list {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .more-btn {
+    appearance: none;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--primary-color, var(--w-text));
+    padding: 10px 0 2px;
+    cursor: pointer;
+    width: 100%;
+  }
+  .field select.grow,
+  select.grow {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
   /* list rows */
   .list-row {
     display: flex;

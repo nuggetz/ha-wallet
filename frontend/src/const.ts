@@ -8,7 +8,7 @@
  * documented key suffixes below.
  */
 
-export const CARD_VERSION = "0.1.3";
+export const CARD_VERSION = "0.1.4";
 export const DOMAIN = "ha_wallet";
 
 /** Device name used by the integration (has_entity_name single device). */

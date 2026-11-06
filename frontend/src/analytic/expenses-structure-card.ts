@@ -1,5 +1,5 @@
 import { html, type TemplateResult } from "lit";
-import { customElement } from "lit/decorators.js";
+import { customElement, state } from "lit/decorators.js";
 import { WalletBaseCard } from "../core/base-card";
 import { singleton } from "../core/discovery";
 import { isUnavailable } from "../core/entity-state";
@@ -7,6 +7,7 @@ import { formatMoney, toNumber } from "../core/format";
 import { categoryColor } from "../core/colors";
 import { emptyState, errorState, skeletonChart, staleBadge } from "../core/states";
 import { donut, type DonutSlice } from "../charts/charts";
+import { cappedList } from "../core/ui";
 import type { HassEntity, WalletCategory } from "../types";
 
 /**
@@ -16,6 +17,11 @@ import type { HassEntity, WalletCategory } from "../types";
  */
 @customElement("wallet-expenses-structure-card")
 export class WalletExpensesStructureCard extends WalletBaseCard {
+  /** Legend rows shown before "Show more". */
+  private static readonly LEGEND_LIMIT = 5;
+
+  @state() private _expanded = false;
+
   protected defaultTitle(): string {
     return "Expenses Structure";
   }
@@ -71,18 +77,25 @@ export class WalletExpensesStructureCard extends WalletBaseCard {
         <div style="flex:0 0 180px;max-width:180px">
           ${donut(slices, currency ?? "", formatMoney(this.hass, total, currency))}
         </div>
-        <div class="grow stack" style="gap:8px;min-width:150px">
-          ${slices.map((s) => {
-            const share = Math.round((s.value / total) * 100);
-            return html`
-              <div class="row between">
-                <span class="subline" style="color:var(--w-text)">
-                  <span class="dot" style="background:${s.color}"></span>${s.label}
-                </span>
-                <span class="muted" style="font-weight:700">${share}%</span>
-              </div>
-            `;
-          })}
+        <div class="grow" style="min-width:150px">
+          ${cappedList(
+            slices,
+            WalletExpensesStructureCard.LEGEND_LIMIT,
+            this._expanded,
+            () => (this._expanded = !this._expanded),
+            (s) => {
+              const share = Math.round((s.value / total) * 100);
+              return html`
+                <div class="row between" style="padding:4px 0;gap:8px">
+                  <span class="subline ellipsis" style="color:var(--w-text)">
+                    <span class="dot" style="background:${s.color}"></span>${s.label}
+                  </span>
+                  <span class="muted" style="font-weight:700">${share}%</span>
+                </div>
+              `;
+            },
+            28,
+          )}
         </div>
       </div>
     `);

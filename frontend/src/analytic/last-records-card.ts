@@ -1,12 +1,12 @@
 import { html, type TemplateResult } from "lit";
-import { customElement } from "lit/decorators.js";
+import { customElement, state } from "lit/decorators.js";
 import { WalletBaseCard } from "../core/base-card";
 import { singleton } from "../core/discovery";
 import { listAccounts } from "../core/accounts";
 import { isUnavailable } from "../core/entity-state";
 import { formatDate, formatMoney, toNumber } from "../core/format";
 import { categoryColor, tint } from "../core/colors";
-import { categoryIcon } from "../core/ui";
+import { cappedList, categoryIcon } from "../core/ui";
 import { emptyState, errorState, skeletonRows, staleBadge } from "../core/states";
 import { COLOR } from "../const";
 import type { HassEntity, WalletCategory, WalletRecord } from "../types";
@@ -18,6 +18,11 @@ import type { HassEntity, WalletCategory, WalletRecord } from "../types";
  */
 @customElement("wallet-last-records-card")
 export class WalletLastRecordsCard extends WalletBaseCard {
+  /** Records shown before "Show more". */
+  private static readonly LIMIT = 8;
+
+  @state() private _expanded = false;
+
   protected defaultTitle(): string {
     return "Last Records";
   }
@@ -65,8 +70,12 @@ export class WalletLastRecordsCard extends WalletBaseCard {
 
     return this.wrap(html`
       ${this.head(isUnavailable(e) && this.seenGood ? staleBadge() : "")}
-      <div>
-        ${records.map((r) => {
+      ${cappedList(
+        records,
+        WalletLastRecordsCard.LIMIT,
+        this._expanded,
+        () => (this._expanded = !this._expanded),
+        (r) => {
           const color = categoryColor(r.category, cats);
           const amount = toNumber(r.amount) ?? 0;
           // `bank_synced` isn't guaranteed on each record (contract gap, flagged
@@ -99,8 +108,8 @@ export class WalletLastRecordsCard extends WalletBaseCard {
               >
             </div>
           `;
-        })}
-      </div>
+        },
+      )}
     `);
   }
 }

@@ -3,8 +3,7 @@ import { customElement, state } from "lit/decorators.js";
 import { WalletActionCard, opColor } from "./action-base";
 import { singleton } from "../core/discovery";
 import { listAccounts, listCategories, type AccountInfo } from "../core/accounts";
-import { categoryColor, tint } from "../core/colors";
-import { categoryIcon } from "../core/ui";
+import { categorySelect } from "../core/ui";
 import { formatDate, formatMoney, toNumber } from "../core/format";
 import { COLOR, PAYMENT_TYPES, SERVICE } from "../const";
 import type { WalletCategory, WalletRecord } from "../types";
@@ -131,23 +130,7 @@ export class WalletRecordsActionCard extends WalletActionCard {
 
         <div class="field">
           <label>Category</label>
-          <div class="pill-row">
-            ${categories.slice(0, 10).map((c) => {
-              const color = categoryColor(c.name, categories);
-              const on = this._categoryId === c.id;
-              return html`<button
-                class="pill"
-                style=${on ? `border-color:${color};background:${tint(color, 0.13)}` : ""}
-                @click=${() => (this._categoryId = on ? null : c.id)}
-              >
-                <ha-icon
-                  icon=${categoryIcon(c.name)}
-                  style="--mdc-icon-size:16px;color:${color}"
-                ></ha-icon>
-                ${c.name}
-              </button>`;
-            })}
-          </div>
+          ${categorySelect(categories, this._categoryId, (id) => (this._categoryId = id))}
         </div>
 
         <div class="field">
